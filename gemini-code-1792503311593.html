@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marginal — Cotizador de Proyectos</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --card-bg: #181b21;
+      --border: #282c35;
+      --accent: #22c55e;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 480px; }
+
+    header { margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+    p.subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    input[type="text"], input[type="number"] {
+      width: 100%; background: #0b0d10; border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 15px; outline: none; margin-bottom: 12px;
+    }
+    input:focus { border-color: var(--accent); }
+
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+
+    /* Slider */
+    .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .slider-val { font-weight: 700; color: var(--accent); }
+    input[type="range"] { width: 100%; margin: 8px 0 16px; accent-color: var(--accent); }
+
+    /* Resumen Financiero */
+    .summary-card { background: #13171f; border: 1px solid #2e3440; border-radius: 12px; padding: 16px; margin-top: 12px; }
+    .summary-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: var(--muted); }
+    .summary-total { display: flex; justify-content: space-between; font-size: 20px; font-weight: 800; color: var(--accent); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px; }
+
+    /* Botones */
+    .btn { width: 100%; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 8px; }
+    .btn-primary { background: #ffffff; color: #000; }
+    .btn-primary:hover { background: #e5e7eb; }
+    .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-share { background: #25d366; color: #000; font-weight: 700; }
+
+    /* Lista guardada */
+    .quote-item { border-left: 3px solid var(--accent); padding-left: 12px; margin-top: 12px; }
+    .quote-item small { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Marginal</h1>
+    <p class="subtitle">Calculadora de cotización y rentabilidad</p>
+  </header>
+
+  <!-- Formulario -->
+  <div class="card">
+    <label>Nombre del Proyecto / Cliente</label>
+    <input type="text" id="projectName" placeholder="Ej. Rediseño Web o Pastel Boda">
+
+    <div class="row">
+      <div>
+        <label>Horas de trabajo</label>
+        <input type="number" id="hours" value="10" min="0" oninput="calculate()">
+      </div>
+      <div>
+        <label>Tarifa / hora ($)</label>
+        <input type="number" id="hourlyRate" value="25" min="0" oninput="calculate()">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Costo Materiales ($)</label>
+        <input type="number" id="materials" value="50" min="0" oninput="calculate()">
+      </div>
+      <div>
+        <label>Gastos Fijos (%)</label>
+        <input type="number" id="overhead" value="10" min="0" oninput="calculate()">
+      </div>
+    </div>
+
+    <div class="slider-header">
+      <label>Margen Neto de Ganancia</label>
+      <span class="slider-val" id="marginDisplay">35%</span>
+    </div>
+    <input type="range" id="marginSlider" min="5" max="80" value="35" oninput="calculate()">
+
+    <!-- Tarjeta de Resultados -->
+    <div class="summary-card">
+      <div class="summary-row">
+        <span>Costo de Mano de Obra:</span>
+        <span id="laborCostDisplay">$250.00</span>
+      </div>
+      <div class="summary-row">
+        <span>Costo Base Total:</span>
+        <span id="totalCostDisplay">$330.00</span>
+      </div>
+      <div class="summary-row">
+        <span>Ganancia Neta Estimada:</span>
+        <span id="profitDisplay">$177.69</span>
+      </div>
+      <div class="summary-total">
+        <span>Precio al Cliente:</span>
+        <span id="finalPriceDisplay">$507.69</span>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveQuote()">Guardar Cotización</button>
+    <button class="btn btn-share" onclick="shareQuote()">Compartir por WhatsApp</button>
+  </div>
+
+  <!-- Historial -->
+  <div class="card">
+    <label>Cotizaciones Guardadas</label>
+    <div id="quotesList"></div>
+  </div>
+</div>
+
+<script>
+  let currentResults = {};
+
+  function calculate() {
+    const hours = parseFloat(document.getElementById('hours').value) || 0;
+    const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
+    const materials = parseFloat(document.getElementById('materials').value) || 0;
+    const overheadPercent = (parseFloat(document.getElementById('overhead').value) || 0) / 100;
+    const marginPercent = (parseFloat(document.getElementById('marginSlider').value) || 0) / 100;
+
+    document.getElementById('marginDisplay').innerText = `${Math.round(marginPercent * 100)}%`;
+
+    const laborCost = hours * rate;
+    const directCost = laborCost + materials;
+    const totalCost = directCost + (directCost * overheadPercent);
+
+    // Fórmula formal: Margen = (Precio - Costo) / Precio  =>  Precio = Costo / (1 - Margen)
+    const finalPrice = marginPercent < 1 ? totalCost / (1 - marginPercent) : totalCost;
+    const netProfit = finalPrice - totalCost;
+
+    document.getElementById('laborCostDisplay').innerText = `$${laborCost.toFixed(2)}`;
+    document.getElementById('totalCostDisplay').innerText = `$${totalCost.toFixed(2)}`;
+    document.getElementById('profitDisplay').innerText = `$${netProfit.toFixed(2)}`;
+    document.getElementById('finalPriceDisplay').innerText = `$${finalPrice.toFixed(2)}`;
+
+    currentResults = {
+      title: document.getElementById('projectName').value || 'Sin título',
+      finalPrice: finalPrice.toFixed(2),
+      cost: totalCost.toFixed(2),
+      profit: netProfit.toFixed(2),
+      date: new Date().toLocaleDateString()
+    };
+  }
+
+  function saveQuote() {
+    const quotes = JSON.parse(localStorage.getItem('marginal_quotes') || '[]');
+    quotes.unshift(currentResults);
+    localStorage.setItem('marginal_quotes', JSON.stringify(quotes));
+    renderQuotes();
+  }
+
+  function renderQuotes() {
+    const container = document.getElementById('quotesList');
+    const quotes = JSON.parse(localStorage.getItem('marginal_quotes') || '[]');
+    if (quotes.length === 0) {
+      container.innerHTML = '<p style="color:var(--muted); font-size:13px; margin-top:8px;">No hay cotizaciones registradas aún.</p>';
+      return;
+    }
+    container.innerHTML = quotes.map((q, idx) => `
+      <div class="quote-item">
+        <strong>${q.title}</strong> — <span style="color:var(--accent); font-weight:700;">$${q.finalPrice}</span><br>
+        <small>Costo: $${q.cost} | Ganancia: $${q.profit} (${q.date})</small>
+      </div>
+    `).join('');
+  }
+
+  function shareQuote() {
+    const text = `Presupuesto para *${currentResults.title}*:\nTotal sugerido: *$${currentResults.finalPrice}*\nGenerado con Marginal.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  calculate();
+  renderQuotes();
+</script>
+</body>
+</html>
