@@ -3,448 +3,515 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marginal — Sistema de Cotización Pro</title>
+  <title>Marginal — App Profesional</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
-    /* Variables de Modo Oscuro (Por Defecto) */
     :root {
       --bg: #0f1115; --card-bg: #181b21; --border: #282c35; 
       --accent: #22c55e; --text: #f3f4f6; --muted: #9ca3af; --danger: #ef4444;
       --input-bg: #0b0d10; --nav-bg: #13171f;
     }
-    /* Variables de Modo Claro */
     body.light-mode {
       --bg: #f9fafb; --card-bg: #ffffff; --border: #e5e7eb; 
       --accent: #16a34a; --text: #111827; --muted: #6b7280;
       --input-bg: #f3f4f6; --nav-bg: #ffffff;
     }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; overflow-x: hidden; }
+    .container { width: 100%; max-width: 480px; min-height: 100vh; position: relative; }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; transition: background 0.3s, color 0.3s; }
-    .app-container { width: 100%; max-width: 500px; padding: 16px; min-height: 100vh; display: flex; flex-direction: column; }
+    /* Vistas Principales */
+    .view { display: none; width: 100%; min-height: 100vh; padding: 20px; flex-direction: column; }
+    .view.active { display: flex; animation: fadeIn 0.4s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; }
-    h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;}
-    .header-actions { display: flex; gap: 8px; }
-    .icon-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 8px; border-radius: 8px; cursor: pointer; }
-    select { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 8px; outline: none; font-weight: 600; }
+    /* 1. Onboarding Slider */
+    .slider { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; flex: 1; margin-bottom: 20px; }
+    .slider::-webkit-scrollbar { display: none; }
+    .slide { min-width: 100%; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+    .slide-icon { font-size: 80px; margin-bottom: 20px; }
+    .slide h2 { font-size: 24px; margin-bottom: 10px; color: var(--accent); }
+    .slide p { color: var(--muted); line-height: 1.5; }
 
-    nav { display: flex; gap: 8px; margin-bottom: 16px; background: var(--nav-bg); padding: 6px; border-radius: 10px; border: 1px solid var(--border); }
-    .nav-btn { flex: 1; padding: 10px; text-align: center; background: transparent; border: none; color: var(--muted); font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 13px; text-transform: uppercase; }
-    .nav-btn.active { background: var(--border); color: var(--text); }
+    /* 2. Auth / Login */
+    .auth-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; }
+    .auth-btn { width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; border: none; }
+    .btn-google { background: #fff; color: #000; }
+    .btn-apple { background: #000; color: #fff; border: 1px solid #333; }
+    .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: var(--muted); font-size: 12px; }
+    .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
+    .divider:not(:empty)::before { margin-right: .25em; }
+    .divider:not(:empty)::after { margin-left: .25em; }
 
-    .tab-content { display: none; flex: 1; }
-    .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
+    /* Elementos Generales APP */
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-    label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-    input[type="text"], input[type="number"] { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 15px; outline: none; margin-bottom: 16px; transition: 0.2s; }
+    label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; }
+    input, select { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 15px; outline: none; margin-bottom: 16px; }
     input:focus, select:focus { border-color: var(--accent); }
-
-    .row { display: flex; gap: 12px; }
-    .row > div { flex: 1; }
-
-    .btn { width: 100%; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: 0.2s; text-align: center; }
+    .row { display: flex; gap: 12px; } .row > div { flex: 1; }
+    .btn { width: 100%; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
     .btn-primary { background: var(--text); color: var(--bg); }
-    .btn-primary:hover { opacity: 0.9; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    .btn-danger { color: var(--danger); background: transparent; font-size: 18px; border: none; cursor: pointer; }
+    
+    /* Header & Menú Lateral */
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+    .menu-btn { background: transparent; border: none; font-size: 24px; color: var(--text); cursor: pointer; }
+    
+    #sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 999; display: none; }
+    #sidebar { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: var(--card-bg); z-index: 1000; transition: 0.3s; padding: 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+    #sidebar.open { left: 0; }
+    .sidebar-user { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 20px; }
+    .menu-item { display: block; width: 100%; text-align: left; padding: 14px 10px; background: transparent; border: none; color: var(--text); font-size: 16px; font-weight: 600; cursor: pointer; border-radius: 8px; margin-bottom: 5px; }
+    .menu-item:hover, .menu-item.active { background: var(--input-bg); color: var(--accent); }
 
-    .item-list { margin-bottom: 16px; }
-    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-    .item-row:last-child { border-bottom: none; }
-    .add-product-box { background: var(--bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; }
+    /* Secciones de la app */
+    .app-section { display: none; }
+    .app-section.active { display: block; animation: fadeIn 0.3s; }
 
+    /* Detalles cotizador */
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--input-bg); border-radius: 8px; margin-bottom: 8px; }
     .summary-box { background: var(--nav-bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-top: 16px; }
     .summary-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: var(--muted); }
     .summary-total { display: flex; justify-content: space-between; font-size: 20px; font-weight: 800; color: var(--accent); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; }
 
-    .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-    input[type="range"] { width: 100%; accent-color: var(--accent); margin-bottom: 16px; }
-
-    #toast { visibility: hidden; min-width: 250px; background-color: var(--text); color: var(--bg); text-align: center; border-radius: 8px; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: 600; font-size: 14px; opacity: 0; transition: 0.3s; z-index: 1000; }
+    #toast { visibility: hidden; min-width: 250px; background-color: var(--accent); color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: 600; font-size: 14px; z-index: 2000; opacity: 0; transition: 0.3s; }
     #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
 
-    #pdf-container { position: absolute; left: -9999px; top: 0; width: 800px; background: white; padding: 40px; color: black; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    .pdf-header { text-align: justify; border-bottom: 2px solid #111827; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; }
-    .pdf-header h1 { color: #111827; font-size: 28px; margin: 0; }
-    .pdf-details p { margin: 4px 0; font-size: 14px; color: #374151; }
+    /* Plantilla PDF Oculta */
+    #pdf-container { position: absolute; left: -9999px; width: 800px; background: white; padding: 40px; color: black; font-family: sans-serif; }
     .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     .pdf-table th, .pdf-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
-    .pdf-table th { background: #f9fafb; font-weight: bold; color: #111827; }
-    .pdf-summary { width: 300px; float: right; }
-    .pdf-summary-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6;}
-    .pdf-summary-total { display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold; color: #16a34a; border-top: 2px solid #111827; margin-top: 8px; }
-    .clear { clear: both; }
-
-    .history-card { cursor: pointer; transition: 0.2s; }
-    .history-card:hover { border-color: var(--accent); }
-    .history-details { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
   </style>
 </head>
 <body>
 
-<div class="app-container">
-  
-  <header>
-    <h1><span style="color:var(--accent)">M</span> Marginal</h1>
-    <div class="header-actions">
-      <select id="currency" onchange="calculateQuote()">
-        <option value="$">USD $</option>
-        <option value="RD$">RD $</option>
-        <option value="€">EUR €</option>
-        <option value="MXN$">MXN $</option>
+<div class="container">
+
+  <!-- VISTA 1: ONBOARDING (GUÍA) -->
+  <div id="view-onboarding" class="view">
+    <div class="slider" id="onboarding-slider">
+      <div class="slide">
+        <div class="slide-icon">⚡</div>
+        <h2>Cotiza en Segundos</h2>
+        <p>Olvídate de Excel. Calcula tus costos, mano de obra y margen de ganancia de forma automática.</p>
+      </div>
+      <div class="slide">
+        <div class="slide-icon">📦</div>
+        <h2>Controla tu Inventario</h2>
+        <p>Guarda tus productos y servicios frecuentes para armar presupuestos con un par de clics.</p>
+      </div>
+      <div class="slide">
+        <div class="slide-icon">📄</div>
+        <h2>PDFs Profesionales</h2>
+        <p>Exporta documentos impecables listos para enviar por WhatsApp a tus clientes.</p>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" onclick="finishOnboarding()">Comenzar ahora</button>
+    </div>
+  </div>
+
+  <!-- VISTA 2: INICIO DE SESIÓN -->
+  <div id="view-auth" class="view" style="justify-content: center; align-items: center;">
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h1 style="color:var(--accent); font-size: 32px; margin-bottom: 10px;">Marginal</h1>
+      <p style="color:var(--muted);">Inicia sesión para proteger tus datos</p>
+    </div>
+    
+    <div class="auth-box">
+      <button class="auth-btn btn-google" onclick="simulatedLogin('Google')">Continuar con Google</button>
+      <button class="auth-btn btn-apple" onclick="simulatedLogin('Apple')">Continuar con Apple</button>
+      
+      <div class="divider">o usa tu correo</div>
+      
+      <input type="email" id="auth-email" placeholder="tu@correo.com">
+      <input type="password" id="auth-pass" placeholder="Contraseña">
+      <button class="btn btn-primary" onclick="simulatedLogin('Email')">Entrar / Registrarse</button>
+    </div>
+  </div>
+
+  <!-- VISTA 3: APLICACIÓN PRINCIPAL -->
+  <div id="view-app" class="view" style="padding-top: 20px;">
+    
+    <header>
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <h1 style="font-size: 20px;"><span style="color:var(--accent)">M</span> Marginal</h1>
+      <select id="currency" style="width:auto; margin:0; padding:6px; font-size:14px;" onchange="calculateQuote()">
+        <option value="$">USD $</option><option value="RD$">RD $</option><option value="€">EUR €</option>
       </select>
-      <button class="icon-btn" onclick="toggleTheme()" id="themeBtn">☀️</button>
+    </header>
+
+    <!-- MENÚ LATERAL (SIDEBAR) -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div id="sidebar">
+      <div class="sidebar-user">
+        <p style="color:var(--muted); font-size:12px;">Conectado como:</p>
+        <strong id="user-display" style="color:var(--accent); font-size:16px;">Usuario</strong>
+      </div>
+      
+      <div style="flex:1;">
+        <label style="margin-top:10px;">Principal</label>
+        <button class="menu-item active" onclick="navTo('sec-quote', this)">✚ Nueva Cotización</button>
+        <button class="menu-item" onclick="navTo('sec-inventory', this)">📦 Inventario</button>
+        <button class="menu-item" onclick="navTo('sec-history', this)">🕒 Historial</button>
+        
+        <label style="margin-top:20px;">Configuración</label>
+        <button class="menu-item" onclick="navTo('sec-settings', this)">⚙️ Ajustes y PDF</button>
+        <button class="menu-item" onclick="toggleTheme()">☀️ Cambiar Tema</button>
+      </div>
+
+      <div style="border-top:1px solid var(--border); padding-top:20px;">
+        <button class="menu-item" style="color:var(--danger);" onclick="logout()">Cerrar Sesión</button>
+      </div>
     </div>
-  </header>
 
-  <nav>
-    <button class="nav-btn active" onclick="switchTab('tab-quote', this)">Cotizador</button>
-    <button class="nav-btn" onclick="switchTab('tab-inventory', this)">Inventario</button>
-    <button class="nav-btn" onclick="switchTab('tab-history', this)">Historial</button>
-  </nav>
-
-  <!-- PESTAÑA 1: COTIZADOR -->
-  <div id="tab-quote" class="tab-content active">
-    <div class="card">
-      <label>Cliente / Proyecto</label>
-      <input type="text" id="q-client" placeholder="Nombre del cliente">
-
-      <hr style="border:none; border-top:1px solid var(--border); margin: 20px 0;">
-
-      <label>1. Agregar Productos / Materiales</label>
-      <div class="add-product-box">
+    <!-- SECCIÓN: COTIZADOR -->
+    <div id="sec-quote" class="app-section active">
+      <div class="card">
+        <label>Cliente / Proyecto</label>
+        <input type="text" id="q-client" placeholder="Nombre del cliente">
+        
+        <label>1. Productos</label>
         <div class="row">
-          <div style="flex: 2;">
-            <label style="font-size:10px;">Producto</label>
-            <select id="q-product-select" style="width:100%; margin-bottom:10px;"></select>
-          </div>
-          <div style="flex: 1;">
-            <label style="font-size:10px;">Cant.</label>
-            <input type="number" id="q-product-qty" value="1" min="1" style="margin-bottom:10px;">
-          </div>
+          <div style="flex: 2;"><select id="q-product-select" style="margin-bottom:10px;"></select></div>
+          <div style="flex: 1;"><input type="number" id="q-product-qty" value="1" min="1" style="margin-bottom:10px;"></div>
         </div>
-        <button class="btn btn-outline" style="padding: 8px;" onclick="addQuoteItem()">+ Añadir a cotización</button>
-      </div>
+        <button class="btn btn-outline" style="padding: 8px; margin-bottom: 16px;" onclick="addQuoteItem()">+ Añadir a cotización</button>
+        <div id="q-items-list" style="margin-bottom: 20px;"></div>
 
-      <div id="q-items-list" class="item-list"></div>
-
-      <hr style="border:none; border-top:1px solid var(--border); margin: 20px 0;">
-
-      <label>2. Mano de Obra y Costos</label>
-      <div class="row">
-        <div><label>Horas estimadas</label><input type="number" id="q-hours" value="0" min="0" oninput="calculateQuote()"></div>
-        <div><label>Tarifa / Hora</label><input type="number" id="q-rate" value="25" min="0" oninput="calculateQuote()"></div>
-      </div>
-      <div>
-        <label>Gastos Fijos / Operativos (%)</label>
+        <label>2. Costos</label>
+        <div class="row">
+          <div><label>Horas</label><input type="number" id="q-hours" value="0" min="0" oninput="calculateQuote()"></div>
+          <div><label>Tarifa/H</label><input type="number" id="q-rate" value="25" min="0" oninput="calculateQuote()"></div>
+        </div>
+        <label>Gastos Fijos (%)</label>
         <input type="number" id="q-overhead" value="10" min="0" oninput="calculateQuote()">
+
+        <label>3. Margen: <span id="q-margin-val" style="color:var(--accent);">30%</span></label>
+        <input type="range" id="q-margin" min="0" max="80" value="30" oninput="calculateQuote()">
+
+        <div class="summary-box">
+          <div class="summary-row"><span>Costo Total Base:</span><span id="s-cost">0.00</span></div>
+          <div class="summary-row"><span>Ganancia Limpia:</span><span id="s-profit">0.00</span></div>
+          <div class="summary-total"><span>Precio Sugerido:</span><span id="s-final">0.00</span></div>
+        </div>
       </div>
+      <button class="btn btn-primary" onclick="saveQuote()">Guardar Cotización</button>
+    </div>
 
-      <hr style="border:none; border-top:1px solid var(--border); margin: 20px 0;">
-
-      <label>3. Rentabilidad</label>
-      <div class="slider-header">
-        <label style="margin:0;">Margen Neto Deseado</label>
-        <span class="slider-val" id="q-margin-val" style="color:var(--accent); font-weight:bold;">30%</span>
+    <!-- SECCIÓN: INVENTARIO -->
+    <div id="sec-inventory" class="app-section">
+      <div class="card">
+        <label>Nuevo Producto</label>
+        <input type="text" id="i-name" placeholder="Ej. Material X">
+        <input type="number" id="i-cost" placeholder="Costo Unitario (0.00)" min="0">
+        <button class="btn btn-primary" onclick="addInventoryItem()">Guardar</button>
       </div>
-      <input type="range" id="q-margin" min="0" max="80" value="30" oninput="calculateQuote()">
+      <div class="card"><div id="inventory-list"></div></div>
+    </div>
 
-      <div class="summary-box">
-        <div class="summary-row"><span>Total Materiales:</span><span id="s-materials">0.00</span></div>
-        <div class="summary-row"><span>Mano de Obra:</span><span id="s-labor">0.00</span></div>
-        <div class="summary-row"><span>Costos Operativos:</span><span id="s-overhead">0.00</span></div>
-        <div class="summary-row" style="border-top:1px solid var(--border); padding-top:8px;"><span>Costo Base Total:</span><span id="s-cost">0.00</span></div>
-        <div class="summary-row"><span>Ganancia Limpia:</span><span id="s-profit">0.00</span></div>
-        <div class="summary-total"><span>Precio Sugerido:</span><span id="s-final">0.00</span></div>
+    <!-- SECCIÓN: HISTORIAL -->
+    <div id="sec-history" class="app-section">
+      <div id="history-list"></div>
+    </div>
+
+    <!-- SECCIÓN: CONFIGURACIÓN -->
+    <div id="sec-settings" class="app-section">
+      <div class="card">
+        <h3 style="margin-bottom:15px; font-size:16px;">Configuración del PDF</h3>
+        <label>Nombre de tu Negocio / Marca</label>
+        <input type="text" id="set-business" placeholder="Tu Empresa LLC">
+        <label>Mensaje final en el PDF (Términos)</label>
+        <input type="text" id="set-terms" placeholder="Precios válidos por 15 días.">
+        <button class="btn btn-outline" onclick="saveSettings()">Guardar Ajustes</button>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--danger); margin-bottom:15px; font-size:16px;">Privacidad y Datos</h3>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:15px;">Tus datos se guardan localmente. Puedes borrarlos en cualquier momento.</p>
+        <button class="btn" style="background:transparent; border:1px solid var(--danger); color:var(--danger);" onclick="clearAllData()">Borrar Toda Mi Información</button>
       </div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-bottom: 20px;">
-      <button class="btn btn-outline" onclick="clearQuote()">Limpiar</button>
-      <button class="btn btn-primary" style="flex:2;" onclick="saveQuote()">Guardar Cotización</button>
-    </div>
   </div>
-
-  <!-- PESTAÑA 2: INVENTARIO -->
-  <div id="tab-inventory" class="tab-content">
-    <div class="card">
-      <h3 style="margin-bottom:16px; font-size:16px;">Nuevo Producto</h3>
-      <label>Nombre del Producto / Servicio</label>
-      <input type="text" id="i-name" placeholder="Ej. Pliego de Papel, Hora de Diseño...">
-      <label>Costo Unitario Base</label>
-      <input type="number" id="i-cost" placeholder="0.00" min="0">
-      <button class="btn btn-primary" onclick="addInventoryItem()">Guardar en Inventario</button>
-    </div>
-
-    <div class="card">
-      <h3 style="margin-bottom:16px; font-size:16px;">Mi Inventario</h3>
-      <div id="inventory-list" class="item-list"></div>
-    </div>
-  </div>
-
-  <!-- PESTAÑA 3: HISTORIAL -->
-  <div id="tab-history" class="tab-content">
-    <div id="history-list"></div>
-  </div>
-
 </div>
 
-<!-- TOAST Y PDF -->
+<!-- TOAST NOTIFICATION -->
 <div id="toast">Notificación</div>
 
+<!-- PLANTILLA PDF -->
 <div id="pdf-container">
-  <div class="pdf-header">
+  <div style="border-bottom: 2px solid #111827; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between;">
     <div>
-      <h1>PRESUPUESTO</h1>
+      <h1 style="color: #111827; font-size: 28px; margin: 0;">PRESUPUESTO</h1>
       <p style="color:#6b7280; margin-top:5px;" id="pdf-date"></p>
     </div>
     <div style="text-align:right;">
-      <p style="font-weight:bold; color:#111827;">Cliente:</p>
-      <p id="pdf-client-name" style="font-size:18px;"></p>
+      <p style="font-weight:bold; color:#111827;" id="pdf-brand-name">Mi Negocio</p>
+      <p style="font-size:16px; color:#374151;" id="pdf-client-name"></p>
     </div>
   </div>
   <table class="pdf-table">
     <thead>
-      <tr>
-        <th>Descripción</th>
-        <th style="text-align:center;">Cant.</th>
-        <th style="text-align:right;">P. Unitario</th>
-        <th style="text-align:right;">Subtotal</th>
-      </tr>
+      <tr style="background: #f9fafb;"><th style="font-weight:bold; color:#111827;">Descripción</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">P. Unitario</th><th style="text-align:right;">Subtotal</th></tr>
     </thead>
     <tbody id="pdf-table-body"></tbody>
   </table>
-  <div class="pdf-summary">
-    <div class="pdf-summary-row"><span>Subtotal Materiales:</span><span id="pdf-materials"></span></div>
-    <div class="pdf-summary-row"><span>Mano de Obra:</span><span id="pdf-labor"></span></div>
-    <div class="pdf-summary-row"><span>Cargos Operativos:</span><span id="pdf-overhead"></span></div>
-    <div class="pdf-summary-total"><span>Total a Pagar:</span><span id="pdf-total"></span></div>
+  <div style="width: 300px; float: right;">
+    <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6;"><span>Costo Base:</span><span id="pdf-cost"></span></div>
+    <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold; color: #16a34a; border-top: 2px solid #111827; margin-top: 8px;"><span>Total Sugerido:</span><span id="pdf-total"></span></div>
   </div>
-  <div class="clear"></div>
-  <div style="margin-top: 60px; border-top: 1px solid #e5e7eb; padding-top: 16px; text-align: center; font-size: 12px; color: #9ca3af;">
-    Documento generado profesionalmente. Los precios tienen una vigencia de 15 días.
+  <div style="clear: both;"></div>
+  <div style="margin-top: 60px; border-top: 1px solid #e5e7eb; padding-top: 16px; text-align: center; font-size: 12px; color: #9ca3af;" id="pdf-footer-terms">
+    Documento generado profesionalmente.
   </div>
 </div>
 
 <script>
-  let inventory = JSON.parse(localStorage.getItem('marg_inventory')) || [];
+  // ESTADOS GLOBALES Y DATOS
+  let inventory = JSON.parse(localStorage.getItem('marg_inv')) || [];
   let quotes = JSON.parse(localStorage.getItem('marg_quotes')) || [];
+  let userSettings = JSON.parse(localStorage.getItem('marg_settings')) || { business: 'Mi Empresa', terms: 'Precios válidos por 15 días.' };
   let currentQuoteItems = [];
   let currentQuoteTotals = {};
 
+  // CONTROL DE VISTAS AL CARGAR
   window.onload = () => {
-    if(localStorage.getItem('marg_theme') === 'light') toggleTheme();
-    renderInventory();
-    updateProductSelect();
-    renderQuotes();
-    calculateQuote();
+    if(localStorage.getItem('marg_theme') === 'light') document.body.classList.add('light-mode');
+    
+    // Rellenar configuracion guardada
+    document.getElementById('set-business').value = userSettings.business;
+    document.getElementById('set-terms').value = userSettings.terms;
+
+    const hasSeenOnboarding = localStorage.getItem('marg_onboarding');
+    const currentUser = localStorage.getItem('marg_user');
+
+    if (!hasSeenOnboarding) {
+      showView('view-onboarding');
+    } else if (!currentUser) {
+      showView('view-auth');
+    } else {
+      document.getElementById('user-display').innerText = currentUser;
+      showView('view-app');
+      initAppData();
+    }
   };
 
-  function switchTab(tabId, btn) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    btn.classList.add('active');
+  function showView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+  }
+
+  // FLUJO DE USUARIO (ONBOARDING & AUTH)
+  function finishOnboarding() {
+    localStorage.setItem('marg_onboarding', 'true');
+    showView('view-auth');
+  }
+
+  function simulatedLogin(method) {
+    let email = "Usuario de " + method;
+    if(method === 'Email') {
+      const input = document.getElementById('auth-email').value;
+      if(!input.includes('@')) return showToast('Ingresa un correo válido');
+      email = input;
+    }
+    localStorage.setItem('marg_user', email);
+    document.getElementById('user-display').innerText = email;
+    showToast('Sesión iniciada exitosamente');
+    showView('view-app');
+    initAppData();
+  }
+
+  function logout() {
+    localStorage.removeItem('marg_user');
+    toggleSidebar();
+    showView('view-auth');
+  }
+
+  // NAVEGACIÓN MENÚ LATERAL
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const isOpen = sidebar.classList.contains('open');
+    sidebar.classList.toggle('open', !isOpen);
+    overlay.style.display = isOpen ? 'none' : 'block';
+  }
+
+  function navTo(sectionId, btnElement) {
+    document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+    document.getElementById(sectionId).classList.add('active');
+    if(btnElement) btnElement.classList.add('active');
+    toggleSidebar(); // Cierra el menú al elegir
   }
 
   function toggleTheme() {
     const isLight = document.body.classList.toggle('light-mode');
-    document.getElementById('themeBtn').innerText = isLight ? '🌙' : '☀️';
     localStorage.setItem('marg_theme', isLight ? 'light' : 'dark');
+    toggleSidebar();
+  }
+
+  // CONFIGURACIÓN Y PRIVACIDAD
+  function saveSettings() {
+    userSettings.business = document.getElementById('set-business').value || 'Mi Empresa';
+    userSettings.terms = document.getElementById('set-terms').value || '';
+    localStorage.setItem('marg_settings', JSON.stringify(userSettings));
+    showToast("Ajustes guardados");
+  }
+
+  function clearAllData() {
+    if(confirm("¿Estás seguro? Esto borrará tu cuenta, cotizaciones e inventario de este dispositivo.")) {
+      localStorage.clear();
+      location.reload();
+    }
   }
 
   function showToast(msg) {
     const toast = document.getElementById("toast");
-    toast.innerText = msg;
-    toast.className = "show";
-    setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+    toast.innerText = msg; toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 3000);
   }
 
+  // INICIALIZACIÓN DE DATOS DE LA APP
+  function initAppData() {
+    renderInventory();
+    updateProductSelect();
+    renderQuotes();
+    calculateQuote();
+  }
+
+  // --- LÓGICA INVENTARIO ---
   function addInventoryItem() {
     const name = document.getElementById('i-name').value.trim();
     const cost = parseFloat(document.getElementById('i-cost').value);
     if(!name || isNaN(cost)) return showToast("Datos inválidos");
-    
     inventory.push({ id: Date.now(), name, cost });
-    localStorage.setItem('marg_inventory', JSON.stringify(inventory));
-    
-    document.getElementById('i-name').value = '';
-    document.getElementById('i-cost').value = '';
-    renderInventory();
-    updateProductSelect();
-    showToast("Producto agregado");
+    localStorage.setItem('marg_inv', JSON.stringify(inventory));
+    document.getElementById('i-name').value = ''; document.getElementById('i-cost').value = '';
+    renderInventory(); updateProductSelect(); showToast("Producto guardado");
   }
 
-  function deleteInventoryItem(id) {
+  function delInventory(id) {
     inventory = inventory.filter(i => i.id !== id);
-    localStorage.setItem('marg_inventory', JSON.stringify(inventory));
-    renderInventory();
-    updateProductSelect();
+    localStorage.setItem('marg_inv', JSON.stringify(inventory));
+    renderInventory(); updateProductSelect();
   }
 
   function renderInventory() {
     const list = document.getElementById('inventory-list');
-    const cur = document.getElementById('currency').value;
-    if(inventory.length === 0) return list.innerHTML = '<p style="color:var(--muted);font-size:13px;">Inventario vacío.</p>';
-    
+    if(inventory.length === 0) return list.innerHTML = '<p style="color:var(--muted);font-size:13px;">Sin productos.</p>';
     list.innerHTML = inventory.map(item => `
       <div class="item-row">
-        <div><strong>${item.name}</strong><br><small style="color:var(--muted)">Costo: ${cur}${item.cost.toFixed(2)}</small></div>
-        <button class="btn-danger" onclick="deleteInventoryItem(${item.id})">×</button>
-      </div>
-    `).join('');
+        <div><strong>${item.name}</strong><br><small>$${item.cost.toFixed(2)} base</small></div>
+        <button class="btn" style="width:auto; padding:5px 10px; background:var(--danger);" onclick="delInventory(${item.id})">X</button>
+      </div>`).join('');
   }
 
   function updateProductSelect() {
     const select = document.getElementById('q-product-select');
-    if(inventory.length === 0) {
-      select.innerHTML = '<option value="">(Inventario vacío)</option>';
-      return;
-    }
-    select.innerHTML = inventory.map(item => `<option value="${item.id}">${item.name} ($${item.cost})</option>`).join('');
+    select.innerHTML = inventory.length ? inventory.map(i => `<option value="${i.id}">${i.name} ($${i.cost})</option>`).join('') : '<option value="">(Inventario vacío)</option>';
   }
 
+  // --- LÓGICA COTIZADOR ---
   function addQuoteItem() {
-    const select = document.getElementById('q-product-select');
-    const qtyInput = document.getElementById('q-product-qty');
-    const id = parseInt(select.value);
-    const qty = parseFloat(qtyInput.value);
-    
-    if(!id || isNaN(qty) || qty <= 0) return;
-    
-    const product = inventory.find(i => i.id === id);
-    currentQuoteItems.push({ name: product.name, cost: product.cost, qty: qty });
-    
-    qtyInput.value = '1';
-    renderQuoteItems();
-    calculateQuote();
+    const id = parseInt(document.getElementById('q-product-select').value);
+    const qty = parseFloat(document.getElementById('q-product-qty').value);
+    if(!id || isNaN(qty)) return;
+    const prod = inventory.find(i => i.id === id);
+    currentQuoteItems.push({ name: prod.name, cost: prod.cost, qty });
+    document.getElementById('q-product-qty').value = '1';
+    renderQuoteItems(); calculateQuote();
   }
 
-  function deleteQuoteItem(index) {
-    currentQuoteItems.splice(index, 1);
-    renderQuoteItems();
-    calculateQuote();
-  }
+  function delQuoteItem(idx) { currentQuoteItems.splice(idx,1); renderQuoteItems(); calculateQuote(); }
 
   function renderQuoteItems() {
-    const list = document.getElementById('q-items-list');
-    const cur = document.getElementById('currency').value;
-    list.innerHTML = currentQuoteItems.map((item, idx) => `
-      <div class="item-row" style="background:var(--input-bg); padding:8px 12px; border-radius:6px; margin-bottom:6px; border:none;">
+    document.getElementById('q-items-list').innerHTML = currentQuoteItems.map((item, idx) => `
+      <div class="item-row">
         <span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span>
-        <div style="display:flex; gap:10px; align-items:center;">
-          <span style="font-size:13px; color:var(--muted);">${cur}${(item.cost * item.qty).toFixed(2)}</span>
-          <button class="btn-danger" style="font-size:14px;" onclick="deleteQuoteItem(${idx})">×</button>
-        </div>
-      </div>
-    `).join('');
+        <div>$${(item.cost * item.qty).toFixed(2)} <button style="background:none; border:none; color:var(--danger); margin-left:10px;" onclick="delQuoteItem(${idx})">✖</button></div>
+      </div>`).join('');
   }
 
   function calculateQuote() {
     const cur = document.getElementById('currency').value;
     const hours = parseFloat(document.getElementById('q-hours').value) || 0;
     const rate = parseFloat(document.getElementById('q-rate').value) || 0;
-    const overheadPct = (parseFloat(document.getElementById('q-overhead').value) || 0) / 100;
-    const marginPct = (parseFloat(document.getElementById('q-margin').value) || 0) / 100;
+    const overPct = (parseFloat(document.getElementById('q-overhead').value) || 0) / 100;
+    const margPct = (parseFloat(document.getElementById('q-margin').value) || 0) / 100;
 
-    document.getElementById('q-margin-val').innerText = `${Math.round(marginPct * 100)}%`;
+    document.getElementById('q-margin-val').innerText = `${Math.round(margPct * 100)}%`;
 
-    const materialsCost = currentQuoteItems.reduce((sum, item) => sum + (item.cost * item.qty), 0);
+    const matCost = currentQuoteItems.reduce((s, i) => s + (i.cost * i.qty), 0);
     const laborCost = hours * rate;
-    const directCost = materialsCost + laborCost;
-    const overheadCost = directCost * overheadPct;
-    const totalCost = directCost + overheadCost;
+    const totalCost = (matCost + laborCost) * (1 + overPct);
+    const finalPrice = margPct < 1 ? totalCost / (1 - margPct) : totalCost;
     
-    const finalPrice = marginPct < 1 ? totalCost / (1 - marginPct) : totalCost;
-    const profit = finalPrice - totalCost;
+    currentQuoteTotals = { totalCost, profit: finalPrice - totalCost, finalPrice, cur, matCost, laborCost };
 
-    currentQuoteTotals = { materialsCost, laborCost, overheadCost, totalCost, profit, finalPrice, cur };
-
-    document.getElementById('s-materials').innerText = `${cur}${materialsCost.toFixed(2)}`;
-    document.getElementById('s-labor').innerText = `${cur}${laborCost.toFixed(2)}`;
-    document.getElementById('s-overhead').innerText = `${cur}${overheadCost.toFixed(2)}`;
     document.getElementById('s-cost').innerText = `${cur}${totalCost.toFixed(2)}`;
-    document.getElementById('s-profit').innerText = `${cur}${profit.toFixed(2)}`;
+    document.getElementById('s-profit').innerText = `${cur}${currentQuoteTotals.profit.toFixed(2)}`;
     document.getElementById('s-final').innerText = `${cur}${finalPrice.toFixed(2)}`;
   }
 
-  function clearQuote() {
-    document.getElementById('q-client').value = '';
-    currentQuoteItems = [];
-    document.getElementById('q-hours').value = '0';
-    renderQuoteItems();
-    calculateQuote();
-  }
-
+  // LA REPARACIÓN DEL BOTÓN GUARDAR
   function saveQuote() {
-    const client = document.getElementById('q-client').value.trim() || 'Sin Nombre';
-    const newQuote = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString(),
-      client,
-      items: [...currentQuoteItems],
-      totals: currentQuoteTotals
-    };
-    quotes.unshift(newQuote);
+    const client = document.getElementById('q-client').value.trim() || 'Cliente General';
+    
+    if(currentQuoteTotals.finalPrice <= 0) {
+      return showToast("Añade productos o costos primero");
+    }
+
+    quotes.unshift({ id: Date.now(), date: new Date().toLocaleDateString(), client, items: [...currentQuoteItems], totals: currentQuoteTotals });
     localStorage.setItem('marg_quotes', JSON.stringify(quotes));
+    
+    // Limpiar formulario
+    document.getElementById('q-client').value = '';
+    currentQuoteItems = []; renderQuoteItems(); calculateQuote();
+    
     renderQuotes();
     showToast("Cotización guardada");
-    switchTab('tab-history', document.querySelectorAll('.nav-btn')[2]);
-  }
-
-  function toggleDetails(id) {
-    const det = document.getElementById(`det-${id}`);
-    det.style.display = det.style.display === 'block' ? 'none' : 'block';
-  }
-
-  function deleteSavedQuote(id) {
-    quotes = quotes.filter(q => q.id !== id);
-    localStorage.setItem('marg_quotes', JSON.stringify(quotes));
-    renderQuotes();
-  }
-
-  function generatePDF(quoteId) {
-    const q = quotes.find(quote => quote.id === quoteId);
-    if(!q) return;
     
+    // Redirigir al historial usando la nueva navegación
+    navTo('sec-history', document.querySelectorAll('.menu-item')[2]);
+  }
+
+  // --- LÓGICA HISTORIAL Y PDF ---
+  function delSavedQuote(id) { quotes = quotes.filter(q => q.id !== id); localStorage.setItem('marg_quotes', JSON.stringify(quotes)); renderQuotes(); }
+
+  function renderQuotes() {
+    const list = document.getElementById('history-list');
+    if(quotes.length === 0) return list.innerHTML = '<p style="color:var(--muted);font-size:13px; text-align:center;">No hay cotizaciones.</p>';
+    list.innerHTML = quotes.map(q => `
+      <div class="card" style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between;">
+          <strong>${q.client}</strong> <span style="color:var(--accent); font-weight:800;">${q.totals.cur}${q.totals.finalPrice.toFixed(2)}</span>
+        </div>
+        <small style="color:var(--muted)">${q.date} | Costo: ${q.totals.cur}${q.totals.totalCost.toFixed(2)}</small>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn btn-outline" style="padding:6px; font-size:12px;" onclick="genPDF(${q.id})">📄 PDF</button>
+          <button class="btn" style="background:var(--danger); padding:6px; font-size:12px;" onclick="delSavedQuote(${q.id})">Borrar</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function genPDF(id) {
+    const q = quotes.find(quote => quote.id === id); if(!q) return;
     showToast("Generando documento...");
+    
     const cur = q.totals.cur;
-
     document.getElementById('pdf-date').innerText = `Fecha: ${q.date}`;
-    document.getElementById('pdf-client-name').innerText = q.client;
+    document.getElementById('pdf-brand-name').innerText = userSettings.business;
+    document.getElementById('pdf-client-name').innerText = `Para: ${q.client}`;
+    document.getElementById('pdf-footer-terms').innerText = userSettings.terms;
     
-    let tableHTML = q.items.map(item => `
-      <tr>
-        <td>${item.name}</td>
-        <td style="text-align:center;">${item.qty}</td>
-        <td style="text-align:right;">${cur}${item.cost.toFixed(2)}</td>
-        <td style="text-align:right;">${cur}${(item.cost * item.qty).toFixed(2)}</td>
-      </tr>
-    `).join('');
+    let table = q.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${cur}${i.cost.toFixed(2)}</td><td style="text-align:right;">${cur}${(i.cost * i.qty).toFixed(2)}</td></tr>`).join('');
+    if(q.totals.laborCost > 0) table += `<tr><td>Mano de Obra (Servicio)</td><td style="text-align:center;">-</td><td style="text-align:right;">-</td><td style="text-align:right;">${cur}${q.totals.laborCost.toFixed(2)}</td></tr>`;
     
-    if(q.totals.laborCost > 0) {
-      tableHTML += `<tr><td>Mano de Obra (Horas)</td><td style="text-align:center;">-</td><td style="text-align:right;">-</td><td style="text-align:right;">${cur}${q.totals.laborCost.toFixed(2)}</td></tr>`;
-    }
-    
-    document.getElementById('pdf-table-body').innerHTML = tableHTML;
-    document.getElementById('pdf-materials').innerText = `${cur}${q.totals.materialsCost.toFixed(2)}`;
-    document.getElementById('pdf-labor').innerText = `${cur}${q.totals.laborCost.toFixed(2)}`;
-    document.getElementById('pdf-overhead').innerText = `${cur}${q.totals.overheadCost.toFixed(2)}`;
+    document.getElementById('pdf-table-body').innerHTML = table;
+    document.getElementById('pdf-cost').innerText = `${cur}${q.totals.totalCost.toFixed(2)}`;
     document.getElementById('pdf-total').innerText = `${cur}${q.totals.finalPrice.toFixed(2)}`;
 
-    const element = document.getElementById('pdf-container');
-    const opt = {
-      margin: 0,
-      filename: `Presupuesto_${q.client.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(element).save();
+    html2pdf().set({ margin: 0, filename: `Presupuesto_${q.client.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } }).from(document.getElementById('pdf-container')).save();
   }
 </script>
 </body>
