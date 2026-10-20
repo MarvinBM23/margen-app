@@ -3,91 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marginal — Cotizador de Proyectos</title>
+  <title>Marginal — Cotizador Pro</title>
+  <!-- Librería para crear PDFs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     :root {
-      --bg: #0f1115;
-      --card-bg: #181b21;
-      --border: #282c35;
-      --accent: #22c55e;
-      --text: #f3f4f6;
-      --muted: #9ca3af;
-      --danger: #ef4444;
+      --bg: #0f1115; --card-bg: #181b21; --border: #282c35; 
+      --accent: #22c55e; --text: #f3f4f6; --muted: #9ca3af;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding: 16px; display: flex; justify-content: center; }
     .container { width: 100%; max-width: 480px; }
 
-    header { margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
     h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
     p.subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+    
+    .currency-selector { background: #0b0d10; color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; outline: none; }
 
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
     label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-    input[type="text"], input[type="number"] {
-      width: 100%; background: #0b0d10; border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 15px; outline: none; margin-bottom: 12px;
-    }
+    input[type="text"], input[type="number"] { width: 100%; background: #0b0d10; border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 15px; outline: none; margin-bottom: 12px; transition: 0.2s; }
     input:focus { border-color: var(--accent); }
 
     .row { display: flex; gap: 12px; }
     .row > div { flex: 1; }
 
-    /* Slider */
     .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     .slider-val { font-weight: 700; color: var(--accent); }
     input[type="range"] { width: 100%; margin: 8px 0 16px; accent-color: var(--accent); }
 
-    /* Resumen Financiero */
-    .summary-card { background: #13171f; border: 1px solid #2e3440; border-radius: 12px; padding: 16px; margin-top: 12px; }
+    /* Resumen Financiero a Exportar */
+    #pdf-section { background: #13171f; border: 1px solid #2e3440; border-radius: 12px; padding: 20px; margin-top: 12px; margin-bottom: 16px; }
+    .brand-pdf { display: none; text-align: center; margin-bottom: 20px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
     .summary-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: var(--muted); }
-    .summary-total { display: flex; justify-content: space-between; font-size: 20px; font-weight: 800; color: var(--accent); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px; }
+    .summary-total { display: flex; justify-content: space-between; font-size: 22px; font-weight: 800; color: var(--accent); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; }
 
-    /* Botones */
-    .btn { width: 100%; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 8px; }
-    .btn-primary { background: #ffffff; color: #000; }
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .btn { width: 100%; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-primary { background: #ffffff; color: #000; grid-column: span 2; }
     .btn-primary:hover { background: #e5e7eb; }
-    .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    .btn-share { background: #25d366; color: #000; font-weight: 700; }
+    .btn-secondary { background: #2e3440; color: #fff; }
+    .btn-secondary:hover { background: #3b4252; }
+    .btn-share { background: #25d366; color: #000; }
+    .btn-clear { background: transparent; color: var(--danger); font-size: 13px; padding: 8px; margin-top: 10px; border: 1px solid #3b1111; }
 
-    /* Lista guardada */
-    .quote-item { border-left: 3px solid var(--accent); padding-left: 12px; margin-top: 12px; }
+    .quote-item { border-left: 3px solid var(--accent); padding-left: 12px; margin-top: 12px; position: relative; }
     .quote-item small { color: var(--muted); }
+    .delete-btn { position: absolute; right: 0; top: 0; background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px; }
+
+    /* Toast Notification */
+    #toast { visibility: hidden; min-width: 250px; background-color: var(--accent); color: #000; text-align: center; border-radius: 8px; padding: 12px; position: fixed; z-index: 1; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: 600; font-size: 14px; box-shadow: 0px 4px 12px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.3s, bottom 0.3s; }
+    #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
   </style>
 </head>
 <body>
 
 <div class="container">
   <header>
-    <h1>Marginal</h1>
-    <p class="subtitle">Calculadora de cotización y rentabilidad</p>
+    <div>
+      <h1>Marginal</h1>
+      <p class="subtitle">Cotizador y Rentabilidad</p>
+    </div>
+    <select id="currency" class="currency-selector" onchange="calculate()">
+      <option value="USD$">USD $</option>
+      <option value="RD$">RD $</option>
+      <option value="€">EUR €</option>
+      <option value="MXN$">MXN $</option>
+      <option value="$">$</option>
+    </select>
   </header>
 
-  <!-- Formulario -->
   <div class="card">
     <label>Nombre del Proyecto / Cliente</label>
-    <input type="text" id="projectName" placeholder="Ej. Rediseño Web o Pastel Boda">
+    <input type="text" id="projectName" placeholder="Ej. Rediseño Web o Pastel Boda" oninput="updateTitle()">
 
     <div class="row">
-      <div>
-        <label>Horas de trabajo</label>
-        <input type="number" id="hours" value="10" min="0" oninput="calculate()">
-      </div>
-      <div>
-        <label>Tarifa / hora ($)</label>
-        <input type="number" id="hourlyRate" value="25" min="0" oninput="calculate()">
-      </div>
+      <div><label>Horas de trabajo</label><input type="number" id="hours" value="10" min="0" oninput="calculate()"></div>
+      <div><label>Tarifa / hora</label><input type="number" id="hourlyRate" value="25" min="0" oninput="calculate()"></div>
     </div>
 
     <div class="row">
-      <div>
-        <label>Costo Materiales ($)</label>
-        <input type="number" id="materials" value="50" min="0" oninput="calculate()">
-      </div>
-      <div>
-        <label>Gastos Fijos (%)</label>
-        <input type="number" id="overhead" value="10" min="0" oninput="calculate()">
-      </div>
+      <div><label>Costo Materiales</label><input type="number" id="materials" value="50" min="0" oninput="calculate()"></div>
+      <div><label>Gastos Fijos (%)</label><input type="number" id="overhead" value="10" min="0" oninput="calculate()"></div>
     </div>
 
     <div class="slider-header">
@@ -96,41 +94,51 @@
     </div>
     <input type="range" id="marginSlider" min="5" max="80" value="35" oninput="calculate()">
 
-    <!-- Tarjeta de Resultados -->
-    <div class="summary-card">
-      <div class="summary-row">
-        <span>Costo de Mano de Obra:</span>
-        <span id="laborCostDisplay">$250.00</span>
-      </div>
-      <div class="summary-row">
-        <span>Costo Base Total:</span>
-        <span id="totalCostDisplay">$330.00</span>
-      </div>
-      <div class="summary-row">
-        <span>Ganancia Neta Estimada:</span>
-        <span id="profitDisplay">$177.69</span>
-      </div>
-      <div class="summary-total">
-        <span>Precio al Cliente:</span>
-        <span id="finalPriceDisplay">$507.69</span>
-      </div>
+    <!-- Vista PDF -->
+    <div id="pdf-section">
+      <div class="brand-pdf" id="pdf-brand">Presupuesto Generado</div>
+      <h3 id="pdf-title" style="margin-bottom: 12px; font-size: 18px; display: none;"></h3>
+      <div class="summary-row"><span>Costo de Mano de Obra:</span><span id="laborCostDisplay"></span></div>
+      <div class="summary-row"><span>Costo Base Total:</span><span id="totalCostDisplay"></span></div>
+      <div class="summary-row"><span>Ganancia Neta:</span><span id="profitDisplay"></span></div>
+      <div class="summary-total"><span>Precio Sugerido:</span><span id="finalPriceDisplay"></span></div>
     </div>
 
     <button class="btn btn-primary" onclick="saveQuote()">Guardar Cotización</button>
-    <button class="btn btn-share" onclick="shareQuote()">Compartir por WhatsApp</button>
+    <div class="btn-grid">
+      <button class="btn btn-secondary" onclick="downloadPDF()">Descargar PDF</button>
+      <button class="btn btn-share" onclick="shareQuote()">WhatsApp</button>
+    </div>
+    <button class="btn btn-clear" onclick="clearForm()">Limpiar / Nueva Cotización</button>
   </div>
 
-  <!-- Historial -->
   <div class="card">
     <label>Cotizaciones Guardadas</label>
     <div id="quotesList"></div>
   </div>
 </div>
 
+<div id="toast">Acción realizada</div>
+
 <script>
   let currentResults = {};
 
+  function showToast(message) {
+    const toast = document.getElementById("toast");
+    toast.innerText = message;
+    toast.className = "show";
+    setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+  }
+
+  function updateTitle() {
+    const title = document.getElementById('projectName').value;
+    const pdfTitle = document.getElementById('pdf-title');
+    if(title) { pdfTitle.style.display = 'block'; pdfTitle.innerText = title; } 
+    else { pdfTitle.style.display = 'none'; }
+  }
+
   function calculate() {
+    const currency = document.getElementById('currency').value;
     const hours = parseFloat(document.getElementById('hours').value) || 0;
     const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
     const materials = parseFloat(document.getElementById('materials').value) || 0;
@@ -142,18 +150,17 @@
     const laborCost = hours * rate;
     const directCost = laborCost + materials;
     const totalCost = directCost + (directCost * overheadPercent);
-
-    // Fórmula formal: Margen = (Precio - Costo) / Precio  =>  Precio = Costo / (1 - Margen)
     const finalPrice = marginPercent < 1 ? totalCost / (1 - marginPercent) : totalCost;
     const netProfit = finalPrice - totalCost;
 
-    document.getElementById('laborCostDisplay').innerText = `$${laborCost.toFixed(2)}`;
-    document.getElementById('totalCostDisplay').innerText = `$${totalCost.toFixed(2)}`;
-    document.getElementById('profitDisplay').innerText = `$${netProfit.toFixed(2)}`;
-    document.getElementById('finalPriceDisplay').innerText = `$${finalPrice.toFixed(2)}`;
+    document.getElementById('laborCostDisplay').innerText = `${currency}${laborCost.toFixed(2)}`;
+    document.getElementById('totalCostDisplay').innerText = `${currency}${totalCost.toFixed(2)}`;
+    document.getElementById('profitDisplay').innerText = `${currency}${netProfit.toFixed(2)}`;
+    document.getElementById('finalPriceDisplay').innerText = `${currency}${finalPrice.toFixed(2)}`;
 
     currentResults = {
       title: document.getElementById('projectName').value || 'Sin título',
+      currency: currency,
       finalPrice: finalPrice.toFixed(2),
       cost: totalCost.toFixed(2),
       profit: netProfit.toFixed(2),
@@ -166,26 +173,61 @@
     quotes.unshift(currentResults);
     localStorage.setItem('marginal_quotes', JSON.stringify(quotes));
     renderQuotes();
+    showToast("¡Cotización guardada exitosamente!");
+  }
+
+  function deleteQuote(index) {
+    let quotes = JSON.parse(localStorage.getItem('marginal_quotes') || '[]');
+    quotes.splice(index, 1);
+    localStorage.setItem('marginal_quotes', JSON.stringify(quotes));
+    renderQuotes();
+    showToast("Cotización eliminada");
   }
 
   function renderQuotes() {
     const container = document.getElementById('quotesList');
     const quotes = JSON.parse(localStorage.getItem('marginal_quotes') || '[]');
     if (quotes.length === 0) {
-      container.innerHTML = '<p style="color:var(--muted); font-size:13px; margin-top:8px;">No hay cotizaciones registradas aún.</p>';
+      container.innerHTML = '<p style="color:var(--muted); font-size:13px;">No hay cotizaciones.</p>';
       return;
     }
     container.innerHTML = quotes.map((q, idx) => `
       <div class="quote-item">
-        <strong>${q.title}</strong> — <span style="color:var(--accent); font-weight:700;">$${q.finalPrice}</span><br>
-        <small>Costo: $${q.cost} | Ganancia: $${q.profit} (${q.date})</small>
+        <strong>${q.title}</strong> — <span style="color:var(--accent); font-weight:700;">${q.currency}${q.finalPrice}</span>
+        <button class="delete-btn" onclick="deleteQuote(${idx})">×</button><br>
+        <small>Costo: ${q.currency}${q.cost} | Ganancia: ${q.currency}${q.profit} (${q.date})</small>
       </div>
     `).join('');
   }
 
   function shareQuote() {
-    const text = `Presupuesto para *${currentResults.title}*:\nTotal sugerido: *$${currentResults.finalPrice}*\nGenerado con Marginal.`;
+    const text = `Presupuesto: *${currentResults.title}*\nTotal sugerido: *${currentResults.currency}${currentResults.finalPrice}*\nGenerado profesionalmente.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  function clearForm() {
+    document.getElementById('projectName').value = '';
+    document.getElementById('hours').value = '0';
+    document.getElementById('materials').value = '0';
+    updateTitle();
+    calculate();
+    showToast("Formulario limpio");
+  }
+
+  function downloadPDF() {
+    showToast("Generando PDF...");
+    document.getElementById('pdf-brand').style.display = 'block';
+    const element = document.getElementById('pdf-section');
+    const opt = {
+      margin: 0.5,
+      filename: `Cotizacion_${currentResults.title.replace(/\s+/g, '_')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, backgroundColor: '#13171f' },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save().then(() => {
+      document.getElementById('pdf-brand').style.display = 'none';
+    });
   }
 
   calculate();
