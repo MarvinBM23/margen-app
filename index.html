@@ -47,6 +47,7 @@
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; }
     input, select { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 15px; outline: none; margin-bottom: 16px; }
+    input[type="file"] { padding: 8px; font-size: 13px; }
     input:focus, select:focus { border-color: var(--accent); }
     .row { display: flex; gap: 12px; } .row > div { flex: 1; }
     .btn { width: 100%; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
@@ -77,38 +78,32 @@
     #toast { visibility: hidden; min-width: 250px; background-color: var(--accent); color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: 600; font-size: 14px; z-index: 2000; opacity: 0; transition: 0.3s; }
     #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
 
-    /* Plantilla PDF Oculta */
-    #pdf-container { position: absolute; left: -9999px; width: 800px; background: white; padding: 40px; color: black; font-family: sans-serif; }
-    .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    /* Plantilla PDF (Se oculta con display none hasta el momento exacto de generarlo) */
+    #pdf-wrapper { display: none; position: absolute; top: 0; left: 0; z-index: -100; }
+    #pdf-container { width: 800px; background: white; padding: 40px; color: black; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box; }
+    .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; margin-top: 20px; }
     .pdf-table th, .pdf-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+    #pdf-logo-img { max-height: 60px; max-width: 200px; display: none; }
   </style>
 </head>
 <body>
 
 <div class="container">
 
-  <!-- VISTA 1: ONBOARDING (GUÍA) -->
+  <!-- VISTA 1: ONBOARDING -->
   <div id="view-onboarding" class="view">
     <div class="slider" id="onboarding-slider">
       <div class="slide">
-        <div class="slide-icon">⚡</div>
-        <h2>Cotiza en Segundos</h2>
-        <p>Olvídate de Excel. Calcula tus costos, mano de obra y margen de ganancia de forma automática.</p>
+        <div class="slide-icon">⚡</div><h2>Cotiza en Segundos</h2><p>Olvídate de Excel. Calcula tus costos, mano de obra y margen de ganancia de forma automática.</p>
       </div>
       <div class="slide">
-        <div class="slide-icon">📦</div>
-        <h2>Controla tu Inventario</h2>
-        <p>Guarda tus productos y servicios frecuentes para armar presupuestos con un par de clics.</p>
+        <div class="slide-icon">📦</div><h2>Controla tu Inventario</h2><p>Guarda tus productos y servicios frecuentes para armar presupuestos rápidamente.</p>
       </div>
       <div class="slide">
-        <div class="slide-icon">📄</div>
-        <h2>PDFs Profesionales</h2>
-        <p>Exporta documentos impecables listos para enviar por WhatsApp a tus clientes.</p>
+        <div class="slide-icon">📄</div><h2>PDFs Profesionales</h2><p>Exporta documentos impecables con tu logo y firma listos para enviar a tus clientes.</p>
       </div>
     </div>
-    <div style="display:flex; gap:10px;">
-      <button class="btn btn-primary" onclick="finishOnboarding()">Comenzar ahora</button>
-    </div>
+    <button class="btn btn-primary" onclick="finishOnboarding()">Comenzar ahora</button>
   </div>
 
   <!-- VISTA 2: INICIO DE SESIÓN -->
@@ -117,13 +112,10 @@
       <h1 style="color:var(--accent); font-size: 32px; margin-bottom: 10px;">Marginal</h1>
       <p style="color:var(--muted);">Inicia sesión para proteger tus datos</p>
     </div>
-    
     <div class="auth-box">
       <button class="auth-btn btn-google" onclick="simulatedLogin('Google')">Continuar con Google</button>
       <button class="auth-btn btn-apple" onclick="simulatedLogin('Apple')">Continuar con Apple</button>
-      
       <div class="divider">o usa tu correo</div>
-      
       <input type="email" id="auth-email" placeholder="tu@correo.com">
       <input type="password" id="auth-pass" placeholder="Contraseña">
       <button class="btn btn-primary" onclick="simulatedLogin('Email')">Entrar / Registrarse</button>
@@ -215,19 +207,38 @@
       <div id="history-list"></div>
     </div>
 
-    <!-- SECCIÓN: CONFIGURACIÓN -->
+    <!-- SECCIÓN: CONFIGURACIÓN Y PDF -->
     <div id="sec-settings" class="app-section">
       <div class="card">
-        <h3 style="margin-bottom:15px; font-size:16px;">Configuración del PDF</h3>
-        <label>Nombre de tu Negocio / Marca</label>
+        <h3 style="margin-bottom:15px; font-size:16px;">Personalizar PDF</h3>
+        
+        <label>1. Plantilla</label>
+        <select id="set-template">
+          <option value="classic">Clásica (Blanca y Limpia)</option>
+          <option value="modern">Moderna (Cabecera Oscura)</option>
+        </select>
+
+        <label>2. Logo de tu Empresa</label>
+        <input type="file" id="set-logo" accept="image/*" onchange="handleLogoUpload(event)">
+        <small style="color:var(--accent); display:none;" id="logo-success">✓ Logo cargado</small>
+        
+        <label style="margin-top:10px;">Nombre de la Empresa</label>
         <input type="text" id="set-business" placeholder="Tu Empresa LLC">
-        <label>Mensaje final en el PDF (Términos)</label>
+
+        <label>3. Firma Autorizada</label>
+        <div class="row">
+          <div><input type="text" id="set-sig-name" placeholder="Tu Nombre"></div>
+          <div><input type="text" id="set-sig-role" placeholder="Cargo (Ej. CEO)"></div>
+        </div>
+
+        <label>4. Mensaje Final (Términos)</label>
         <input type="text" id="set-terms" placeholder="Precios válidos por 15 días.">
-        <button class="btn btn-outline" onclick="saveSettings()">Guardar Ajustes</button>
+        
+        <button class="btn btn-outline" style="margin-top:10px;" onclick="saveSettings()">Guardar Personalización</button>
       </div>
+
       <div class="card">
         <h3 style="color:var(--danger); margin-bottom:15px; font-size:16px;">Privacidad y Datos</h3>
-        <p style="font-size:12px; color:var(--muted); margin-bottom:15px;">Tus datos se guardan localmente. Puedes borrarlos en cualquier momento.</p>
         <button class="btn" style="background:transparent; border:1px solid var(--danger); color:var(--danger);" onclick="clearAllData()">Borrar Toda Mi Información</button>
       </div>
     </div>
@@ -235,65 +246,101 @@
   </div>
 </div>
 
-<!-- TOAST NOTIFICATION -->
+<!-- TOAST -->
 <div id="toast">Notificación</div>
 
-<!-- PLANTILLA PDF -->
-<div id="pdf-container">
-  <div style="border-bottom: 2px solid #111827; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between;">
-    <div>
-      <h1 style="color: #111827; font-size: 28px; margin: 0;">PRESUPUESTO</h1>
-      <p style="color:#6b7280; margin-top:5px;" id="pdf-date"></p>
+<!-- PLANTILLA PDF (Oculta, pero estructurada para funcionar siempre) -->
+<div id="pdf-wrapper">
+  <div id="pdf-container">
+    
+    <!-- Cabecera -->
+    <div id="pdf-header" style="border-bottom: 2px solid #111827; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1 style="font-size: 28px; margin: 0; padding:0;" id="pdf-title-text">PRESUPUESTO</h1>
+        <p style="margin-top:5px; font-size:14px;" id="pdf-date"></p>
+      </div>
+      <div style="text-align:right;">
+        <img id="pdf-logo-img" src="" alt="Logo">
+        <p style="font-weight:bold; font-size:18px; margin-top:5px;" id="pdf-brand-name">Mi Negocio</p>
+      </div>
     </div>
-    <div style="text-align:right;">
-      <p style="font-weight:bold; color:#111827;" id="pdf-brand-name">Mi Negocio</p>
-      <p style="font-size:16px; color:#374151;" id="pdf-client-name"></p>
+
+    <!-- Info del Cliente -->
+    <div style="padding: 20px 20px 0 20px;">
+      <p style="font-size:14px; color:#6b7280; margin-bottom:2px;">Preparado para:</p>
+      <p style="font-size:18px; font-weight:bold; color:#111827; margin:0;" id="pdf-client-name"></p>
     </div>
-  </div>
-  <table class="pdf-table">
-    <thead>
-      <tr style="background: #f9fafb;"><th style="font-weight:bold; color:#111827;">Descripción</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">P. Unitario</th><th style="text-align:right;">Subtotal</th></tr>
-    </thead>
-    <tbody id="pdf-table-body"></tbody>
-  </table>
-  <div style="width: 300px; float: right;">
-    <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6;"><span>Costo Base:</span><span id="pdf-cost"></span></div>
-    <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold; color: #16a34a; border-top: 2px solid #111827; margin-top: 8px;"><span>Total Sugerido:</span><span id="pdf-total"></span></div>
-  </div>
-  <div style="clear: both;"></div>
-  <div style="margin-top: 60px; border-top: 1px solid #e5e7eb; padding-top: 16px; text-align: center; font-size: 12px; color: #9ca3af;" id="pdf-footer-terms">
-    Documento generado profesionalmente.
+
+    <!-- Tabla -->
+    <div style="padding: 20px;">
+      <table class="pdf-table">
+        <thead id="pdf-table-head">
+          <tr style="background: #f9fafb;">
+            <th style="font-weight:bold; color:#111827;">Descripción</th>
+            <th style="text-align:center; font-weight:bold; color:#111827;">Cant.</th>
+            <th style="text-align:right; font-weight:bold; color:#111827;">P. Unitario</th>
+            <th style="text-align:right; font-weight:bold; color:#111827;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody id="pdf-table-body"></tbody>
+      </table>
+
+      <!-- Resumen -->
+      <div style="width: 300px; float: right; margin-top:10px;">
+        <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6;">
+          <span style="color:#6b7280;">Costo Base:</span><span id="pdf-cost" style="color:#111827; font-weight:bold;"></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold; color: #16a34a; border-top: 2px solid #111827; margin-top: 8px;">
+          <span>Total Sugerido:</span><span id="pdf-total"></span>
+        </div>
+      </div>
+      <div style="clear: both;"></div>
+
+      <!-- Firma -->
+      <div style="margin-top: 50px; width: 250px; text-align: center; display:none;" id="pdf-signature-block">
+        <div style="border-bottom: 1px solid #111827; height: 40px; margin-bottom: 8px;"></div>
+        <p style="font-weight:bold; color:#111827; margin:0; font-size:14px;" id="pdf-sig-name"></p>
+        <p style="color:#6b7280; margin:0; font-size:12px;" id="pdf-sig-role"></p>
+      </div>
+
+      <!-- Footer Términos -->
+      <div style="margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 16px; text-align: center; font-size: 12px; color: #9ca3af;" id="pdf-footer-terms">
+        Documento generado profesionalmente.
+      </div>
+    </div>
+
   </div>
 </div>
 
 <script>
-  // ESTADOS GLOBALES Y DATOS
   let inventory = JSON.parse(localStorage.getItem('marg_inv')) || [];
   let quotes = JSON.parse(localStorage.getItem('marg_quotes')) || [];
-  let userSettings = JSON.parse(localStorage.getItem('marg_settings')) || { business: 'Mi Empresa', terms: 'Precios válidos por 15 días.' };
+  
+  // Settings ampliados
+  let userSettings = JSON.parse(localStorage.getItem('marg_settings')) || { 
+    template: 'classic', business: 'Mi Empresa', terms: 'Precios válidos por 15 días.', logoData: '', sigName: '', sigRole: '' 
+  };
+  
   let currentQuoteItems = [];
   let currentQuoteTotals = {};
 
-  // CONTROL DE VISTAS AL CARGAR
   window.onload = () => {
     if(localStorage.getItem('marg_theme') === 'light') document.body.classList.add('light-mode');
     
-    // Rellenar configuracion guardada
-    document.getElementById('set-business').value = userSettings.business;
-    document.getElementById('set-terms').value = userSettings.terms;
+    // Cargar config guardada
+    document.getElementById('set-template').value = userSettings.template || 'classic';
+    document.getElementById('set-business').value = userSettings.business || '';
+    document.getElementById('set-terms').value = userSettings.terms || '';
+    document.getElementById('set-sig-name').value = userSettings.sigName || '';
+    document.getElementById('set-sig-role').value = userSettings.sigRole || '';
+    if(userSettings.logoData) document.getElementById('logo-success').style.display = 'block';
 
     const hasSeenOnboarding = localStorage.getItem('marg_onboarding');
     const currentUser = localStorage.getItem('marg_user');
 
-    if (!hasSeenOnboarding) {
-      showView('view-onboarding');
-    } else if (!currentUser) {
-      showView('view-auth');
-    } else {
-      document.getElementById('user-display').innerText = currentUser;
-      showView('view-app');
-      initAppData();
-    }
+    if (!hasSeenOnboarding) showView('view-onboarding');
+    else if (!currentUser) showView('view-auth');
+    else { document.getElementById('user-display').innerText = currentUser; showView('view-app'); initAppData(); }
   };
 
   function showView(viewId) {
@@ -301,12 +348,7 @@
     document.getElementById(viewId).classList.add('active');
   }
 
-  // FLUJO DE USUARIO (ONBOARDING & AUTH)
-  function finishOnboarding() {
-    localStorage.setItem('marg_onboarding', 'true');
-    showView('view-auth');
-  }
-
+  function finishOnboarding() { localStorage.setItem('marg_onboarding', 'true'); showView('view-auth'); }
   function simulatedLogin(method) {
     let email = "Usuario de " + method;
     if(method === 'Email') {
@@ -314,26 +356,15 @@
       if(!input.includes('@')) return showToast('Ingresa un correo válido');
       email = input;
     }
-    localStorage.setItem('marg_user', email);
-    document.getElementById('user-display').innerText = email;
-    showToast('Sesión iniciada exitosamente');
-    showView('view-app');
-    initAppData();
+    localStorage.setItem('marg_user', email); document.getElementById('user-display').innerText = email;
+    showToast('Sesión iniciada'); showView('view-app'); initAppData();
   }
+  function logout() { localStorage.removeItem('marg_user'); toggleSidebar(); showView('view-auth'); }
 
-  function logout() {
-    localStorage.removeItem('marg_user');
-    toggleSidebar();
-    showView('view-auth');
-  }
-
-  // NAVEGACIÓN MENÚ LATERAL
   function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const isOpen = sidebar.classList.contains('open');
-    sidebar.classList.toggle('open', !isOpen);
-    overlay.style.display = isOpen ? 'none' : 'block';
+    const s = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay');
+    const open = s.classList.contains('open');
+    s.classList.toggle('open', !open); o.style.display = open ? 'none' : 'block';
   }
 
   function navTo(sectionId, btnElement) {
@@ -341,177 +372,169 @@
     document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
     document.getElementById(sectionId).classList.add('active');
     if(btnElement) btnElement.classList.add('active');
-    toggleSidebar(); // Cierra el menú al elegir
+    toggleSidebar();
   }
 
   function toggleTheme() {
     const isLight = document.body.classList.toggle('light-mode');
-    localStorage.setItem('marg_theme', isLight ? 'light' : 'dark');
-    toggleSidebar();
-  }
-
-  // CONFIGURACIÓN Y PRIVACIDAD
-  function saveSettings() {
-    userSettings.business = document.getElementById('set-business').value || 'Mi Empresa';
-    userSettings.terms = document.getElementById('set-terms').value || '';
-    localStorage.setItem('marg_settings', JSON.stringify(userSettings));
-    showToast("Ajustes guardados");
-  }
-
-  function clearAllData() {
-    if(confirm("¿Estás seguro? Esto borrará tu cuenta, cotizaciones e inventario de este dispositivo.")) {
-      localStorage.clear();
-      location.reload();
-    }
+    localStorage.setItem('marg_theme', isLight ? 'light' : 'dark'); toggleSidebar();
   }
 
   function showToast(msg) {
-    const toast = document.getElementById("toast");
-    toast.innerText = msg; toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 3000);
+    const t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3000);
   }
 
-  // INICIALIZACIÓN DE DATOS DE LA APP
-  function initAppData() {
-    renderInventory();
-    updateProductSelect();
-    renderQuotes();
-    calculateQuote();
+  // --- LÓGICA DE CONFIGURACIÓN Y LOGO ---
+  function handleLogoUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        userSettings.logoData = e.target.result;
+        document.getElementById('logo-success').style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
   }
+
+  function saveSettings() {
+    userSettings.template = document.getElementById('set-template').value;
+    userSettings.business = document.getElementById('set-business').value;
+    userSettings.terms = document.getElementById('set-terms').value;
+    userSettings.sigName = document.getElementById('set-sig-name').value;
+    userSettings.sigRole = document.getElementById('set-sig-role').value;
+    localStorage.setItem('marg_settings', JSON.stringify(userSettings));
+    showToast("Configuración de PDF guardada");
+  }
+
+  function clearAllData() {
+    if(confirm("¿Estás seguro? Se borrará TODO.")) { localStorage.clear(); location.reload(); }
+  }
+
+  function initAppData() { renderInventory(); updateProductSelect(); renderQuotes(); calculateQuote(); }
 
   // --- LÓGICA INVENTARIO ---
   function addInventoryItem() {
-    const name = document.getElementById('i-name').value.trim();
-    const cost = parseFloat(document.getElementById('i-cost').value);
+    const name = document.getElementById('i-name').value.trim(), cost = parseFloat(document.getElementById('i-cost').value);
     if(!name || isNaN(cost)) return showToast("Datos inválidos");
-    inventory.push({ id: Date.now(), name, cost });
-    localStorage.setItem('marg_inv', JSON.stringify(inventory));
+    inventory.push({ id: Date.now(), name, cost }); localStorage.setItem('marg_inv', JSON.stringify(inventory));
     document.getElementById('i-name').value = ''; document.getElementById('i-cost').value = '';
-    renderInventory(); updateProductSelect(); showToast("Producto guardado");
+    renderInventory(); updateProductSelect(); showToast("Guardado");
   }
-
-  function delInventory(id) {
-    inventory = inventory.filter(i => i.id !== id);
-    localStorage.setItem('marg_inv', JSON.stringify(inventory));
-    renderInventory(); updateProductSelect();
-  }
-
+  function delInventory(id) { inventory = inventory.filter(i => i.id !== id); localStorage.setItem('marg_inv', JSON.stringify(inventory)); renderInventory(); updateProductSelect(); }
   function renderInventory() {
     const list = document.getElementById('inventory-list');
     if(inventory.length === 0) return list.innerHTML = '<p style="color:var(--muted);font-size:13px;">Sin productos.</p>';
-    list.innerHTML = inventory.map(item => `
-      <div class="item-row">
-        <div><strong>${item.name}</strong><br><small>$${item.cost.toFixed(2)} base</small></div>
-        <button class="btn" style="width:auto; padding:5px 10px; background:var(--danger);" onclick="delInventory(${item.id})">X</button>
-      </div>`).join('');
+    list.innerHTML = inventory.map(i => `<div class="item-row"><div><strong>${i.name}</strong><br><small>$${i.cost.toFixed(2)}</small></div><button class="btn btn-outline" style="width:auto; padding:5px 10px; color:var(--danger); border-color:var(--danger);" onclick="delInventory(${i.id})">X</button></div>`).join('');
   }
-
-  function updateProductSelect() {
-    const select = document.getElementById('q-product-select');
-    select.innerHTML = inventory.length ? inventory.map(i => `<option value="${i.id}">${i.name} ($${i.cost})</option>`).join('') : '<option value="">(Inventario vacío)</option>';
-  }
+  function updateProductSelect() { document.getElementById('q-product-select').innerHTML = inventory.length ? inventory.map(i => `<option value="${i.id}">${i.name} ($${i.cost})</option>`).join('') : '<option value="">Vacío</option>'; }
 
   // --- LÓGICA COTIZADOR ---
   function addQuoteItem() {
-    const id = parseInt(document.getElementById('q-product-select').value);
-    const qty = parseFloat(document.getElementById('q-product-qty').value);
+    const id = parseInt(document.getElementById('q-product-select').value), qty = parseFloat(document.getElementById('q-product-qty').value);
     if(!id || isNaN(qty)) return;
-    const prod = inventory.find(i => i.id === id);
-    currentQuoteItems.push({ name: prod.name, cost: prod.cost, qty });
-    document.getElementById('q-product-qty').value = '1';
-    renderQuoteItems(); calculateQuote();
+    const prod = inventory.find(i => i.id === id); currentQuoteItems.push({ name: prod.name, cost: prod.cost, qty });
+    document.getElementById('q-product-qty').value = '1'; renderQuoteItems(); calculateQuote();
   }
-
   function delQuoteItem(idx) { currentQuoteItems.splice(idx,1); renderQuoteItems(); calculateQuote(); }
-
   function renderQuoteItems() {
-    document.getElementById('q-items-list').innerHTML = currentQuoteItems.map((item, idx) => `
-      <div class="item-row">
-        <span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span>
-        <div>$${(item.cost * item.qty).toFixed(2)} <button style="background:none; border:none; color:var(--danger); margin-left:10px;" onclick="delQuoteItem(${idx})">✖</button></div>
-      </div>`).join('');
+    document.getElementById('q-items-list').innerHTML = currentQuoteItems.map((item, idx) => `<div class="item-row"><span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><div>$${(item.cost * item.qty).toFixed(2)} <button style="background:none; border:none; color:var(--danger); margin-left:10px;" onclick="delQuoteItem(${idx})">✖</button></div></div>`).join('');
   }
-
   function calculateQuote() {
-    const cur = document.getElementById('currency').value;
-    const hours = parseFloat(document.getElementById('q-hours').value) || 0;
-    const rate = parseFloat(document.getElementById('q-rate').value) || 0;
-    const overPct = (parseFloat(document.getElementById('q-overhead').value) || 0) / 100;
-    const margPct = (parseFloat(document.getElementById('q-margin').value) || 0) / 100;
-
+    const cur = document.getElementById('currency').value, hours = parseFloat(document.getElementById('q-hours').value) || 0, rate = parseFloat(document.getElementById('q-rate').value) || 0;
+    const overPct = (parseFloat(document.getElementById('q-overhead').value) || 0) / 100, margPct = (parseFloat(document.getElementById('q-margin').value) || 0) / 100;
     document.getElementById('q-margin-val').innerText = `${Math.round(margPct * 100)}%`;
-
-    const matCost = currentQuoteItems.reduce((s, i) => s + (i.cost * i.qty), 0);
-    const laborCost = hours * rate;
-    const totalCost = (matCost + laborCost) * (1 + overPct);
-    const finalPrice = margPct < 1 ? totalCost / (1 - margPct) : totalCost;
-    
+    const matCost = currentQuoteItems.reduce((s, i) => s + (i.cost * i.qty), 0), laborCost = hours * rate;
+    const totalCost = (matCost + laborCost) * (1 + overPct), finalPrice = margPct < 1 ? totalCost / (1 - margPct) : totalCost;
     currentQuoteTotals = { totalCost, profit: finalPrice - totalCost, finalPrice, cur, matCost, laborCost };
-
-    document.getElementById('s-cost').innerText = `${cur}${totalCost.toFixed(2)}`;
-    document.getElementById('s-profit').innerText = `${cur}${currentQuoteTotals.profit.toFixed(2)}`;
-    document.getElementById('s-final').innerText = `${cur}${finalPrice.toFixed(2)}`;
+    document.getElementById('s-cost').innerText = `${cur}${totalCost.toFixed(2)}`; document.getElementById('s-profit').innerText = `${cur}${currentQuoteTotals.profit.toFixed(2)}`; document.getElementById('s-final').innerText = `${cur}${finalPrice.toFixed(2)}`;
   }
 
-  // LA REPARACIÓN DEL BOTÓN GUARDAR
   function saveQuote() {
     const client = document.getElementById('q-client').value.trim() || 'Cliente General';
-    
-    if(currentQuoteTotals.finalPrice <= 0) {
-      return showToast("Añade productos o costos primero");
-    }
-
+    if(currentQuoteTotals.finalPrice <= 0) return showToast("Añade productos primero");
     quotes.unshift({ id: Date.now(), date: new Date().toLocaleDateString(), client, items: [...currentQuoteItems], totals: currentQuoteTotals });
     localStorage.setItem('marg_quotes', JSON.stringify(quotes));
-    
-    // Limpiar formulario
-    document.getElementById('q-client').value = '';
-    currentQuoteItems = []; renderQuoteItems(); calculateQuote();
-    
-    renderQuotes();
-    showToast("Cotización guardada");
-    
-    // Redirigir al historial usando la nueva navegación
-    navTo('sec-history', document.querySelectorAll('.menu-item')[2]);
+    document.getElementById('q-client').value = ''; currentQuoteItems = []; renderQuoteItems(); calculateQuote(); renderQuotes();
+    showToast("Cotización guardada"); navTo('sec-history', document.querySelectorAll('.menu-item')[2]);
   }
 
-  // --- LÓGICA HISTORIAL Y PDF ---
+  // --- LÓGICA HISTORIAL Y LA REPARACIÓN DEL PDF ---
   function delSavedQuote(id) { quotes = quotes.filter(q => q.id !== id); localStorage.setItem('marg_quotes', JSON.stringify(quotes)); renderQuotes(); }
-
   function renderQuotes() {
     const list = document.getElementById('history-list');
-    if(quotes.length === 0) return list.innerHTML = '<p style="color:var(--muted);font-size:13px; text-align:center;">No hay cotizaciones.</p>';
-    list.innerHTML = quotes.map(q => `
-      <div class="card" style="margin-bottom:10px;">
-        <div style="display:flex; justify-content:space-between;">
-          <strong>${q.client}</strong> <span style="color:var(--accent); font-weight:800;">${q.totals.cur}${q.totals.finalPrice.toFixed(2)}</span>
-        </div>
-        <small style="color:var(--muted)">${q.date} | Costo: ${q.totals.cur}${q.totals.totalCost.toFixed(2)}</small>
-        <div style="display:flex; gap:8px; margin-top:12px;">
-          <button class="btn btn-outline" style="padding:6px; font-size:12px;" onclick="genPDF(${q.id})">📄 PDF</button>
-          <button class="btn" style="background:var(--danger); padding:6px; font-size:12px;" onclick="delSavedQuote(${q.id})">Borrar</button>
-        </div>
-      </div>`).join('');
+    if(quotes.length === 0) return list.innerHTML = '<p style="color:var(--muted);text-align:center;">No hay cotizaciones.</p>';
+    list.innerHTML = quotes.map(q => `<div class="card" style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between;"><strong>${q.client}</strong> <span style="color:var(--accent); font-weight:800;">${q.totals.cur}${q.totals.finalPrice.toFixed(2)}</span></div><small style="color:var(--muted)">${q.date} | Costo: ${q.totals.cur}${q.totals.totalCost.toFixed(2)}</small><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-outline" style="padding:6px; font-size:12px;" onclick="genPDF(${q.id})">📄 Generar PDF</button><button class="btn" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px; font-size:12px;" onclick="delSavedQuote(${q.id})">Borrar</button></div></div>`).join('');
   }
 
   function genPDF(id) {
     const q = quotes.find(quote => quote.id === id); if(!q) return;
-    showToast("Generando documento...");
-    
+    showToast("Procesando PDF...");
     const cur = q.totals.cur;
-    document.getElementById('pdf-date').innerText = `Fecha: ${q.date}`;
-    document.getElementById('pdf-brand-name').innerText = userSettings.business;
-    document.getElementById('pdf-client-name').innerText = `Para: ${q.client}`;
-    document.getElementById('pdf-footer-terms').innerText = userSettings.terms;
+
+    // Aplicar Plantilla
+    const header = document.getElementById('pdf-header');
+    const titleText = document.getElementById('pdf-title-text');
+    const tableHead = document.getElementById('pdf-table-head');
     
+    if (userSettings.template === 'modern') {
+      header.style.background = '#111827';
+      header.style.color = '#ffffff';
+      titleText.style.color = '#ffffff';
+      document.getElementById('pdf-date').style.color = '#9ca3af';
+      document.getElementById('pdf-brand-name').style.color = '#ffffff';
+      tableHead.querySelector('tr').style.background = '#f3f4f6';
+    } else {
+      header.style.background = 'transparent';
+      header.style.color = '#111827';
+      titleText.style.color = '#111827';
+      document.getElementById('pdf-date').style.color = '#6b7280';
+      document.getElementById('pdf-brand-name').style.color = '#111827';
+      tableHead.querySelector('tr').style.background = '#f9fafb';
+    }
+
+    // Aplicar Logo
+    const logoImg = document.getElementById('pdf-logo-img');
+    if(userSettings.logoData) { logoImg.src = userSettings.logoData; logoImg.style.display = 'block'; }
+    else { logoImg.style.display = 'none'; }
+
+    // Rellenar Datos
+    document.getElementById('pdf-date').innerText = `Fecha: ${q.date}`;
+    document.getElementById('pdf-brand-name').innerText = userSettings.business || 'Presupuesto';
+    document.getElementById('pdf-client-name').innerText = q.client;
+    document.getElementById('pdf-footer-terms').innerText = userSettings.terms || '';
+
+    // Firma
+    const sigBlock = document.getElementById('pdf-signature-block');
+    if(userSettings.sigName) {
+      document.getElementById('pdf-sig-name').innerText = userSettings.sigName;
+      document.getElementById('pdf-sig-role').innerText = userSettings.sigRole;
+      sigBlock.style.display = 'block';
+    } else {
+      sigBlock.style.display = 'none';
+    }
+    
+    // Tabla
     let table = q.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${cur}${i.cost.toFixed(2)}</td><td style="text-align:right;">${cur}${(i.cost * i.qty).toFixed(2)}</td></tr>`).join('');
     if(q.totals.laborCost > 0) table += `<tr><td>Mano de Obra (Servicio)</td><td style="text-align:center;">-</td><td style="text-align:right;">-</td><td style="text-align:right;">${cur}${q.totals.laborCost.toFixed(2)}</td></tr>`;
-    
     document.getElementById('pdf-table-body').innerHTML = table;
     document.getElementById('pdf-cost').innerText = `${cur}${q.totals.totalCost.toFixed(2)}`;
     document.getElementById('pdf-total').innerText = `${cur}${q.totals.finalPrice.toFixed(2)}`;
 
-    html2pdf().set({ margin: 0, filename: `Presupuesto_${q.client.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } }).from(document.getElementById('pdf-container')).save();
+    // La Solución al PDF en Blanco: Mostrar el contenedor rápidamente
+    const wrapper = document.getElementById('pdf-wrapper');
+    wrapper.style.display = 'block';
+
+    html2pdf()
+      .set({ margin: 0, filename: `Presupuesto_${q.client.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } })
+      .from(document.getElementById('pdf-container'))
+      .save()
+      .then(() => {
+        // Volver a ocultar la plantilla tras guardar
+        wrapper.style.display = 'none';
+        showToast("¡PDF Descargado!");
+      });
   }
 </script>
 </body>
