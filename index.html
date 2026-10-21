@@ -9,9 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js')); }
-  </script>
+  <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js')); }</script>
   <style>
     :root {
       --bg: #0f1115; --card-bg: #181b21; --border: #282c35; 
@@ -40,11 +38,10 @@
     .btn-primary { background: var(--text); color: var(--bg); }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
     .btn-small { padding: 6px 10px; font-size: 12px; width: auto; }
+    
     .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-    .badge.factura { background: #3b82f6; color: #fff; }
-    .badge.cotizacion { background: var(--accent); color: #fff; }
-    .badge.pendiente { background: #eab308; color: #000; }
-    .badge.pagada { background: #22c55e; color: #fff; }
+    .badge.factura { background: #3b82f6; color: #fff; } .badge.cotizacion { background: var(--accent); color: #fff; }
+    .badge.pendiente { background: #eab308; color: #000; } .badge.pagada { background: #22c55e; color: #fff; }
 
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
     .app-branding { display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -66,25 +63,22 @@
     #toast { visibility: hidden; min-width: 250px; background-color: var(--accent); color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: 600; font-size: 14px; z-index: 2000; opacity: 0; transition: 0.3s; }
     #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
 
-    /* PDF (Oculto) */
+    /* PDF UI */
     #pdf-wrapper { display: none; position: absolute; top: 0; left: 0; z-index: -100; }
     #pdf-container { width: 800px; background: white; padding: 40px; color: black; box-sizing: border-box; }
     .pdf-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     .pdf-table th, .pdf-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
-    #pdf-logo-img { max-height: 60px; max-width: 200px; display: none; }
   </style>
 </head>
 <body>
 
 <div class="container">
 
-  <!-- VISTAS AUTH (Simplificadas para el código) -->
   <div id="view-auth" class="view" style="justify-content: center; align-items: center;">
     <h1 style="color:var(--accent); font-size: 32px; margin-bottom: 30px;">Cifra</h1>
-    <div style="width:100%;"><button class="btn btn-primary" onclick="simulatedLogin()">Entrar / Comenzar</button></div>
+    <div style="width:100%;"><button class="btn btn-primary" onclick="simulatedLogin()">Entrar al Sistema</button></div>
   </div>
 
-  <!-- APP PRINCIPAL -->
   <div id="view-app" class="view" style="padding-top: 20px;">
     
     <header>
@@ -92,7 +86,7 @@
       <div class="app-branding" onclick="navTo('sec-dashboard')">
         <img id="app-top-logo" src=""><h1 style="font-size: 20px;"><span style="color:var(--accent)">/</span> Cifra</h1>
       </div>
-      <select id="currency" style="width:auto; margin:0; padding:6px; font-size:14px;" onchange="initAppData()">
+      <select id="currency" style="width:auto; margin:0; padding:6px; font-size:14px;" onchange="initApp()">
         <option value="$">USD $</option><option value="RD$">RD $</option><option value="€">EUR €</option>
       </select>
     </header>
@@ -104,8 +98,8 @@
       <button class="menu-item" onclick="navTo('sec-doc-builder', this)">📄 Crear Documento</button>
       <button class="menu-item" onclick="navTo('sec-clients', this)">👥 Clientes</button>
       <button class="menu-item" onclick="navTo('sec-inventory', this)">📦 Inventario</button>
-      <button class="menu-item" onclick="navTo('sec-history', this)">🕒 Historial / Facturas</button>
-      <button class="menu-item" style="margin-top:20px;" onclick="navTo('sec-settings', this)">⚙️ Ajustes y Plantillas</button>
+      <button class="menu-item" onclick="navTo('sec-history', this)">🕒 Historial</button>
+      <button class="menu-item" style="margin-top:20px;" onclick="navTo('sec-settings', this)">⚙️ Ajustes y Backups</button>
       <button class="menu-item" onclick="toggleTheme()">☀️ Tema Claro/Oscuro</button>
       <button class="menu-item" style="color:var(--danger); margin-top:20px;" onclick="logout()">Salir</button>
     </div>
@@ -113,13 +107,13 @@
     <!-- DASHBOARD -->
     <div id="sec-dashboard" class="app-section active">
       <div class="widget-grid">
-        <div class="widget"><p>Facturado Pendiente</p><h3 id="dash-pend" style="color:#eab308;">$0.00</h3></div>
-        <div class="widget"><p>Ingresos Pagados</p><h3 id="dash-paid" style="color:#22c55e;">$0.00</h3></div>
+        <div class="widget"><p>Por Cobrar</p><h3 id="dash-pend" style="color:#eab308;">$0.00</h3></div>
+        <div class="widget"><p>Ingresos (Pagado)</p><h3 id="dash-paid" style="color:#22c55e;">$0.00</h3></div>
       </div>
       <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Documentos Recientes</h3><div id="dash-recent-list"></div></div>
     </div>
 
-    <!-- CREADOR DE DOCUMENTOS (COTIZACIÓN O FACTURA) -->
+    <!-- CREADOR DE DOCUMENTOS -->
     <div id="sec-doc-builder" class="app-section">
       <div class="card">
         <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
@@ -132,9 +126,9 @@
           <div id="div-due-date" style="display:none;"><label>Vence el</label><input type="date" id="doc-due-date"></div>
         </div>
 
-        <label>Cliente</label>
-        <select id="doc-client-select" onchange="fillClientData()"><option value="">-- Seleccionar o crear nuevo --</option></select>
-        <input type="text" id="doc-client-name" placeholder="Nombre completo">
+        <label>Cliente (Busca o escribe uno nuevo)</label>
+        <input list="dl-clients" id="doc-client-name" placeholder="Escribe el nombre..." onchange="fillClientData()">
+        <datalist id="dl-clients"></datalist>
         <div class="row">
           <div><input type="email" id="doc-client-email" placeholder="Correo"></div>
           <div><input type="text" id="doc-client-phone" placeholder="Teléfono"></div>
@@ -147,20 +141,19 @@
           <div style="flex:2;"><select id="doc-product-select"></select></div>
           <div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1"></div>
         </div>
-        <button class="btn btn-outline" style="padding:8px; margin-bottom:16px;" onclick="addDocItem()">+ Añadir</button>
+        <button class="btn btn-outline" style="padding:8px; margin-bottom:16px;" onclick="addDocItem()">+ Añadir a la lista</button>
         <div id="doc-items-list" style="margin-bottom: 20px;"></div>
 
         <div class="row">
-          <div><label>ITBIS / Impuesto (%)</label><input type="number" id="doc-tax" value="0" min="0" oninput="calcDoc()"></div>
+          <div><label>Impuesto (%)</label><input type="number" id="doc-tax" value="0" min="0" oninput="calcDoc()"></div>
           <div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" oninput="calcDoc()"></div>
         </div>
 
-        <!-- Solo visible si es cotización (para calcular margen interno) -->
         <div id="div-internal-calc">
           <hr style="border-top:1px solid var(--border); margin:15px 0;">
-          <label>Cálculo Interno (No visible en PDF)</label>
+          <label>Cálculo Interno (Mano de Obra)</label>
           <div class="row"><div><label>Horas</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div><div><label>Tarifa</label><input type="number" id="doc-rate" value="25" oninput="calcDoc()"></div></div>
-          <div class="row"><div><label>Margen: <span id="doc-margin-val">30%</span></label><input type="range" id="doc-margin" min="0" max="80" value="30" oninput="calcDoc()"></div></div>
+          <label>Margen Estimado: <span id="doc-margin-val">30%</span></label><input type="range" id="doc-margin" min="0" max="80" value="30" oninput="calcDoc()">
         </div>
 
         <div class="summary-box">
@@ -173,21 +166,13 @@
       <button class="btn btn-primary" id="btn-save-doc" onclick="saveDoc()">Guardar Documento</button>
     </div>
 
-    <!-- CLIENTES (CRM) -->
+    <!-- CRM Y INVENTARIO -->
     <div id="sec-clients" class="app-section">
-      <div class="card">
-        <h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3>
-        <input type="text" id="c-name" placeholder="Empresa / Nombre">
-        <input type="email" id="c-email" placeholder="Correo">
-        <input type="text" id="c-address" placeholder="Dirección">
-        <button class="btn btn-primary" onclick="saveClient()">Guardar Cliente</button>
-      </div>
+      <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3><input type="text" id="c-name" placeholder="Nombre"><input type="email" id="c-email" placeholder="Correo"><input type="text" id="c-address" placeholder="Tel / Dirección"><button class="btn btn-primary" onclick="saveClient()">Guardar</button></div>
       <div class="card"><div id="client-list"></div></div>
     </div>
-
-    <!-- INVENTARIO -->
     <div id="sec-inventory" class="app-section">
-      <div class="card"><input type="text" id="i-name" placeholder="Nombre"><input type="number" id="i-cost" placeholder="Precio Base"><button class="btn btn-primary" onclick="saveInv()">Guardar</button></div>
+      <div class="card"><input type="text" id="i-name" placeholder="Nombre Producto"><input type="number" id="i-cost" placeholder="Precio Base"><button class="btn btn-primary" onclick="saveInv()">Guardar</button></div>
       <div class="card"><div id="inventory-list"></div></div>
     </div>
 
@@ -196,22 +181,31 @@
       <div id="history-list"></div>
     </div>
 
-    <!-- AJUSTES Y PLANTILLAS -->
+    <!-- AJUSTES Y BACKUP -->
     <div id="sec-settings" class="app-section">
       <div class="card">
-        <h3 style="margin-bottom:15px; font-size:16px;">Apariencia PDF</h3>
+        <h3 style="margin-bottom:15px; font-size:16px;">Copias de Seguridad (Backup)</h3>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Exporta tus datos para no perderlos, o impórtalos en otro dispositivo.</p>
         <div class="row">
-          <div><label>Color Marca</label><input type="color" id="set-color" value="#111827"></div>
-          <div><label>Fuente PDF</label><select id="set-font"><option value="Helvetica">Helvetica / Arial</option><option value="Times New Roman">Times New Roman</option><option value="Courier">Courier Monospace</option></select></div>
+          <button class="btn btn-primary" style="background:#3b82f6;" onclick="exportBackup()">📥 Exportar Datos</button>
+          <div style="position:relative; flex:1;">
+            <button class="btn btn-outline" style="width:100%;">📤 Importar Datos</button>
+            <input type="file" accept=".json" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onchange="importBackup(event)">
+          </div>
         </div>
-        <label>Diseño Factura</label><select id="set-inv-tpl"><option value="modern">Moderna (Cabecera Color)</option><option value="classic">Clásica (Bordes simples)</option><option value="minimal">Minimalista (Sin líneas)</option></select>
-        <label>Diseño Cotización</label><select id="set-quo-tpl"><option value="classic">Clásica</option><option value="modern">Moderna</option><option value="minimal">Minimalista</option></select>
-        <label>Logo</label><input type="file" id="set-logo" accept="image/*" onchange="handleLogoUpload(event)">
+      </div>
+
+      <div class="card">
+        <h3 style="margin-bottom:15px; font-size:16px;">Apariencia PDF</h3>
+        <div class="row"><div><label>Color Marca</label><input type="color" id="set-color" value="#111827"></div><div><label>Fuente</label><select id="set-font"><option value="Helvetica">Helvetica</option><option value="Times New Roman">Times New Roman</option></select></div></div>
+        <label>Diseño Factura</label><select id="set-inv-tpl"><option value="modern">Moderna</option><option value="classic">Clásica</option></select>
+        <label>Diseño Cotización</label><select id="set-quo-tpl"><option value="classic">Clásica</option><option value="modern">Moderna</option></select>
+        <label>Logo</label><input type="file" accept="image/*" onchange="handleLogoUpload(event)">
       </div>
       <div class="card">
         <h3 style="margin-bottom:15px; font-size:16px;">Datos del Negocio</h3>
         <input type="text" id="set-biz-name" placeholder="Nombre Legal">
-        <input type="text" id="set-biz-id" placeholder="RNC / CIF / ID Fiscal">
+        <input type="text" id="set-biz-id" placeholder="ID Fiscal (RNC/CIF)">
         <input type="text" id="set-biz-address" placeholder="Dirección">
         <button class="btn btn-primary" onclick="saveSettings()">Guardar Configuración</button>
       </div>
@@ -222,7 +216,7 @@
 
 <div id="toast">Notificación</div>
 
-<!-- PDF PLANTILLA UNIVERSAL -->
+<!-- PLANTILLA PDF -->
 <div id="pdf-wrapper"><div id="pdf-container">
   <div id="pdf-header" style="padding: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
     <div><h1 style="font-size: 36px; margin: 0; text-transform:uppercase;" id="pdf-type">DOCUMENTO</h1><p style="margin-top:8px; font-size:14px;" id="pdf-meta"></p></div>
@@ -255,6 +249,9 @@
   
   let currentItems = [], docTotals = {}, editId = null;
 
+  // UTILIDAD DE MONEDA
+  function fMoney(val, cur) { return cur + val.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
   window.onload = () => {
     if(localStorage.getItem('marg_theme') === 'light') document.body.classList.add('light-mode');
     document.getElementById('set-color').value = settings.color; document.getElementById('set-font').value = settings.font;
@@ -274,6 +271,25 @@
 
   function initApp() { renderClients(); renderInv(); updateSelects(); renderHistory(); renderDash(); }
 
+  // --- BACKUP ---
+  function exportBackup() {
+    const data = { inv: localStorage.getItem('cifra_inv'), cli: localStorage.getItem('cifra_cli'), docs: localStorage.getItem('cifra_docs'), set: localStorage.getItem('cifra_set') };
+    const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Cifra_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); showToast("Copia de seguridad descargada");
+  }
+  function importBackup(e) {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const d = JSON.parse(evt.target.result);
+        if(d.inv) localStorage.setItem('cifra_inv', d.inv); if(d.cli) localStorage.setItem('cifra_cli', d.cli);
+        if(d.docs) localStorage.setItem('cifra_docs', d.docs); if(d.set) localStorage.setItem('cifra_set', d.set);
+        alert("Datos restaurados correctamente. La app se reiniciará."); location.reload();
+      } catch(err) { alert("Archivo de copia de seguridad inválido."); }
+    }; reader.readAsText(file);
+  }
+
   function handleLogoUpload(e) { const reader = new FileReader(); reader.onload = evt => { settings.logo = evt.target.result; document.getElementById('app-top-logo').src = settings.logo; document.getElementById('app-top-logo').style.display = 'block'; saveSettings(true); }; reader.readAsDataURL(e.target.files[0]); }
   function saveSettings(silent=false) { settings.color = document.getElementById('set-color').value; settings.font = document.getElementById('set-font').value; settings.tplInv = document.getElementById('set-inv-tpl').value; settings.tplQuo = document.getElementById('set-quo-tpl').value; settings.name = document.getElementById('set-biz-name').value; settings.id = document.getElementById('set-biz-id').value; settings.address = document.getElementById('set-biz-address').value; localStorage.setItem('cifra_set', JSON.stringify(settings)); if(!silent) showToast("Ajustes guardados"); }
 
@@ -285,59 +301,72 @@
   // --- INV ---
   function saveInv() { const name = document.getElementById('i-name').value, cost = parseFloat(document.getElementById('i-cost').value); if(!name || isNaN(cost)) return; inventory.push({id: Date.now(), name, cost}); localStorage.setItem('cifra_inv', JSON.stringify(inventory)); document.getElementById('i-name').value=''; document.getElementById('i-cost').value=''; renderInv(); updateSelects(); }
   function delInv(id) { inventory = inventory.filter(i => i.id !== id); localStorage.setItem('cifra_inv', JSON.stringify(inventory)); renderInv(); updateSelects(); }
-  function renderInv() { document.getElementById('inventory-list').innerHTML = inventory.map(i => `<div class="item-row"><div><strong>${i.name}</strong><br><small>$${i.cost.toFixed(2)}</small></div><button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delInv(${i.id})">✖</button></div>`).join(''); }
+  function renderInv() { const cur = document.getElementById('currency').value; document.getElementById('inventory-list').innerHTML = inventory.map(i => `<div class="item-row"><div><strong>${i.name}</strong><br><small>${fMoney(i.cost, cur)}</small></div><button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delInv(${i.id})">✖</button></div>`).join(''); }
 
   function updateSelects() {
-    document.getElementById('doc-client-select').innerHTML = '<option value="">-- Seleccionar o crear nuevo --</option>' + clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    document.getElementById('doc-product-select').innerHTML = inventory.map(i => `<option value="${i.id}">${i.name} ($${i.cost})</option>`).join('');
+    document.getElementById('dl-clients').innerHTML = clients.map(c => `<option value="${c.name}">`).join('');
+    document.getElementById('doc-product-select').innerHTML = inventory.map(i => `<option value="${i.id}">${i.name} (${document.getElementById('currency').value}${i.cost})</option>`).join('');
   }
+  function fillClientData() { const name = document.getElementById('doc-client-name').value; const c = clients.find(x => x.name === name); if(c) { document.getElementById('doc-client-email').value = c.email; document.getElementById('doc-client-phone').value = c.address; } }
 
   // --- DOC BUILDER ---
   function toggleFacturaFields() { const type = document.getElementById('doc-type').value; document.getElementById('div-due-date').style.display = type === 'Factura' ? 'block' : 'none'; document.getElementById('div-internal-calc').style.display = type === 'Cotización' ? 'block' : 'none'; calcDoc(); }
-  function fillClientData() { const id = parseInt(document.getElementById('doc-client-select').value); if(!id) return; const c = clients.find(x => x.id === id); document.getElementById('doc-client-name').value = c.name; document.getElementById('doc-client-email').value = c.email; }
   
   function addDocItem() { const id = parseInt(document.getElementById('doc-product-select').value), qty = parseFloat(document.getElementById('doc-qty').value); if(!id || isNaN(qty)) return; const prod = inventory.find(i => i.id === id); currentItems.push({name: prod.name, cost: prod.cost, qty}); renderDocItems(); calcDoc(); }
   function delDocItem(idx) { currentItems.splice(idx,1); renderDocItems(); calcDoc(); }
-  function renderDocItems() { document.getElementById('doc-items-list').innerHTML = currentItems.map((item, idx) => `<div class="item-row"><span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><div>$${(item.cost * item.qty).toFixed(2)} <button style="background:none; border:none; color:var(--danger); margin-left:10px;" onclick="delDocItem(${idx})">✖</button></div></div>`).join(''); }
+  function renderDocItems() { const cur = document.getElementById('currency').value; document.getElementById('doc-items-list').innerHTML = currentItems.map((item, idx) => `<div class="item-row"><span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><div>${fMoney(item.cost * item.qty, cur)} <button style="background:none; border:none; color:var(--danger); margin-left:10px;" onclick="delDocItem(${idx})">✖</button></div></div>`).join(''); }
   
   function calcDoc() {
     const type = document.getElementById('doc-type').value, cur = document.getElementById('currency').value;
     const subtotal = currentItems.reduce((s, i) => s + (i.cost * i.qty), 0);
     const taxPct = parseFloat(document.getElementById('doc-tax').value) || 0, discPct = parseFloat(document.getElementById('doc-disc').value) || 0;
     
-    let total = subtotal;
-    let labor = 0;
+    let total = subtotal; let labor = 0; let hours = 0; let rate = 0; let margin = 0;
     
     if (type === 'Cotización') {
-      const h = parseFloat(document.getElementById('doc-hours').value)||0, r = parseFloat(document.getElementById('doc-rate').value)||0;
-      labor = h * r; total = subtotal + labor;
-      const m = parseFloat(document.getElementById('doc-margin').value)||0; document.getElementById('doc-margin-val').innerText = `${m}%`;
-      if(m < 100) total = total / (1 - (m/100)); // Margen real
+      hours = parseFloat(document.getElementById('doc-hours').value)||0; rate = parseFloat(document.getElementById('doc-rate').value)||0;
+      labor = hours * rate; total = subtotal + labor;
+      margin = parseFloat(document.getElementById('doc-margin').value)||0; document.getElementById('doc-margin-val').innerText = `${margin}%`;
+      if(margin < 100) total = total / (1 - (margin/100));
     }
 
     const discAmt = total * (discPct/100); total -= discAmt;
     const taxAmt = total * (taxPct/100); total += taxAmt;
 
-    docTotals = { subtotal, discAmt, taxAmt, total, cur, taxPct, discPct, labor };
-    document.getElementById('s-sub').innerText = `${cur}${subtotal.toFixed(2)}`; document.getElementById('s-tax').innerText = `${cur}${taxAmt.toFixed(2)}`; document.getElementById('s-disc').innerText = `${cur}${discAmt.toFixed(2)}`; document.getElementById('s-final').innerText = `${cur}${total.toFixed(2)}`;
+    docTotals = { subtotal, discAmt, taxAmt, total, cur, taxPct, discPct, labor, hours, rate, margin };
+    document.getElementById('s-sub').innerText = fMoney(subtotal, cur); document.getElementById('s-tax').innerText = fMoney(taxAmt, cur); document.getElementById('s-disc').innerText = fMoney(discAmt, cur); document.getElementById('s-final').innerText = fMoney(total, cur);
   }
 
   function saveDoc() {
     const name = document.getElementById('doc-client-name').value; if(!name || currentItems.length === 0) return showToast("Faltan datos");
     const type = document.getElementById('doc-type').value;
     
-    // Generar Nro de Factura secuencial
     let docNum = `COT-${Date.now().toString().slice(-4)}`;
     if(type === 'Factura') { const fCount = documents.filter(d => d.type === 'Factura').length + 1; docNum = `FAC-${fCount.toString().padStart(4, '0')}`; }
+    if(editId) { const oldD = documents.find(d => d.id === editId); if(oldD && oldD.type === type) docNum = oldD.num; }
 
     const doc = { id: editId || Date.now(), num: docNum, type, date: new Date().toLocaleDateString(), dueDate: document.getElementById('doc-due-date').value, client: { name, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value }, items: [...currentItems], totals: docTotals, status: type==='Factura' ? 'Pendiente' : 'Activa' };
     
     if(editId) { const idx = documents.findIndex(d => d.id === editId); documents[idx] = doc; } else documents.unshift(doc);
     localStorage.setItem('cifra_docs', JSON.stringify(documents)); clearDoc(); renderHistory(); renderDash(); showToast("Documento guardado"); navTo('sec-history');
   }
-  function clearDoc() { document.getElementById('doc-client-name').value=''; currentItems=[]; editId=null; document.getElementById('doc-title-label').innerText="Nuevo Documento"; renderDocItems(); calcDoc(); }
+  
+  function editDoc(id) {
+    const d = documents.find(x => x.id === id); if(!d) return;
+    document.getElementById('doc-type').value = d.type; toggleFacturaFields();
+    if(d.dueDate) document.getElementById('doc-due-date').value = d.dueDate;
+    document.getElementById('doc-client-name').value = d.client.name; document.getElementById('doc-client-email').value = d.client.email; document.getElementById('doc-client-phone').value = d.client.phone;
+    currentItems = [...d.items];
+    document.getElementById('doc-tax').value = d.totals.taxPct; document.getElementById('doc-disc').value = d.totals.discPct;
+    if(d.type === 'Cotización') { document.getElementById('doc-hours').value = d.totals.hours||0; document.getElementById('doc-rate').value = d.totals.rate||0; document.getElementById('doc-margin').value = d.totals.margin||0; }
+    
+    editId = d.id; document.getElementById('doc-title-label').innerText = "Editando " + d.num; document.getElementById('btn-save-doc').innerText = "Actualizar Documento";
+    renderDocItems(); calcDoc(); navTo('sec-doc-builder', document.querySelectorAll('.menu-item')[1]);
+  }
 
-  // --- HISTORIAL & DASH ---
+  function clearDoc() { document.getElementById('doc-client-name').value=''; document.getElementById('doc-client-email').value=''; document.getElementById('doc-client-phone').value=''; currentItems=[]; editId=null; document.getElementById('doc-title-label').innerText="Nuevo Documento"; document.getElementById('btn-save-doc').innerText="Guardar Documento"; renderDocItems(); calcDoc(); }
+
+  // --- HISTORIAL Y DASH ---
   function toggleStatus(id) { const d = documents.find(x => x.id === id); if(d && d.type === 'Factura') { d.status = d.status === 'Pendiente' ? 'Pagada' : 'Pendiente'; localStorage.setItem('cifra_docs', JSON.stringify(documents)); renderHistory(); renderDash(); } }
   function delDoc(id) { documents = documents.filter(d => d.id !== id); localStorage.setItem('cifra_docs', JSON.stringify(documents)); renderHistory(); renderDash(); }
   
@@ -345,68 +374,74 @@
     document.getElementById('history-list').innerHTML = documents.map(d => `
       <div class="card" style="margin-bottom:10px;">
         <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-          <div><span class="badge ${d.type.toLowerCase()}">${d.type} ${d.num}</span> ${d.type==='Factura' ? `<span class="badge ${d.status.toLowerCase()}" style="cursor:pointer;" onclick="toggleStatus(${d.id})">${d.status}</span>` : ''}</div>
-          <strong style="color:var(--accent);">${d.totals.cur}${d.totals.total.toFixed(2)}</strong>
+          <div><span class="badge ${d.type.toLowerCase()}">${d.num}</span> ${d.type==='Factura' ? `<span class="badge ${d.status.toLowerCase()}" style="cursor:pointer;" onclick="toggleStatus(${d.id})">${d.status}</span>` : ''}</div>
+          <strong style="color:var(--accent);">${fMoney(d.totals.total, d.totals.cur)}</strong>
         </div>
         <strong>${d.client.name}</strong> <small style="color:var(--muted)">| ${d.date}</small>
-        <div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-outline" style="padding:6px; font-size:12px;" onclick="genPDF(${d.id})">📄 PDF</button><button class="btn" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px; font-size:12px;" onclick="delDoc(${d.id})">Borrar</button></div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
+          <button class="btn btn-outline btn-small" onclick="genPDF(${d.id})">📄 PDF</button>
+          <button class="btn btn-outline btn-small" onclick="shareDoc(${d.id})">📲 Compartir</button>
+          <button class="btn btn-outline btn-small" onclick="editDoc(${d.id})">✏️ Editar</button>
+          <button class="btn btn-small" style="background:transparent; border:1px solid var(--danger); color:var(--danger);" onclick="delDoc(${d.id})">Borrar</button>
+        </div>
       </div>`).join('');
   }
 
   function renderDash() {
-    const cur = document.getElementById('currency').value;
-    let pend = 0, paid = 0;
+    const cur = document.getElementById('currency').value; let pend = 0, paid = 0;
     documents.filter(d => d.type === 'Factura').forEach(d => { if(d.status === 'Pendiente') pend += d.totals.total; else paid += d.totals.total; });
-    document.getElementById('dash-pend').innerText = `${cur}${pend.toFixed(2)}`; document.getElementById('dash-paid').innerText = `${cur}${paid.toFixed(2)}`;
-    document.getElementById('dash-recent-list').innerHTML = documents.slice(0,3).map(d => `<div class="item-row"><div><strong>${d.client.name}</strong><br><small><span class="badge ${d.type.toLowerCase()}">${d.type}</span> ${d.date}</small></div><strong>${cur}${d.totals.total.toFixed(2)}</strong></div>`).join('');
+    document.getElementById('dash-pend').innerText = fMoney(pend, cur); document.getElementById('dash-paid').innerText = fMoney(paid, cur);
+    document.getElementById('dash-recent-list').innerHTML = documents.slice(0,3).map(d => `<div class="item-row"><div><strong>${d.client.name}</strong><br><small><span class="badge ${d.type.toLowerCase()}">${d.type}</span> ${d.date}</small></div><strong>${fMoney(d.totals.total, cur)}</strong></div>`).join('');
   }
 
-  // --- MOTOR PDF AVANZADO ---
-  function genPDF(id) {
-    const d = documents.find(x => x.id === id); if(!d) return; showToast("Generando diseño..."); const cur = d.totals.cur;
-    
-    const wrapper = document.getElementById('pdf-wrapper'), container = document.getElementById('pdf-container'), header = document.getElementById('pdf-header');
+  // --- PDF & SHARE ---
+  function prepPDF(d) {
+    const cur = d.totals.cur, wrapper = document.getElementById('pdf-wrapper'), container = document.getElementById('pdf-container'), header = document.getElementById('pdf-header');
     container.style.fontFamily = settings.font;
+    const tpl = d.type === 'Factura' ? settings.tplInv : settings.tplQuo; const color = settings.color || '#111827';
     
-    const tpl = d.type === 'Factura' ? settings.tplInv : settings.tplQuo;
-    const color = settings.color || '#111827';
-    
-    // Aplicar Diseño Seleccionado
     if(tpl === 'modern') { header.style.background = color; header.style.color = '#fff'; header.style.borderBottom = 'none'; document.getElementById('pdf-type').style.color = '#fff'; document.getElementById('pdf-total-row').style.color = color; }
     else if(tpl === 'classic') { header.style.background = 'transparent'; header.style.color = '#000'; header.style.borderBottom = `4px solid ${color}`; document.getElementById('pdf-type').style.color = color; document.getElementById('pdf-total-row').style.color = color; }
-    else if(tpl === 'minimal') { header.style.background = 'transparent'; header.style.color = '#000'; header.style.borderBottom = 'none'; document.getElementById('pdf-type').style.color = '#9ca3af'; document.getElementById('pdf-total-row').style.color = '#000'; }
-
-    // Rellenar Cabecera Negocio
+    
     if(settings.logo) { document.getElementById('pdf-logo-img').src = settings.logo; document.getElementById('pdf-logo-img').style.display = 'block'; } else document.getElementById('pdf-logo-img').style.display = 'none';
-    document.getElementById('pdf-biz-name').innerText = settings.name || 'Empresa';
-    document.getElementById('pdf-biz-meta').innerHTML = `${settings.id ? 'ID: '+settings.id+'<br>' : ''}${settings.address}`;
+    document.getElementById('pdf-biz-name').innerText = settings.name || 'Empresa'; document.getElementById('pdf-biz-meta').innerHTML = `${settings.id ? 'ID: '+settings.id+'<br>' : ''}${settings.address}`;
+    document.getElementById('pdf-type').innerText = d.type; document.getElementById('pdf-meta').innerHTML = `<strong>Nº:</strong> ${d.num}<br><strong>Fecha:</strong> ${d.date}${d.dueDate ? '<br><strong>Vence:</strong> '+d.dueDate : ''}`;
+    document.getElementById('pdf-cli-name').innerText = d.client.name; document.getElementById('pdf-cli-meta').innerHTML = `${d.client.email}<br>${d.client.phone}`;
     
-    // Rellenar Documento Info
-    document.getElementById('pdf-type').innerText = d.type;
-    document.getElementById('pdf-meta').innerHTML = `<strong>Nº:</strong> ${d.num}<br><strong>Fecha:</strong> ${d.date}${d.dueDate ? '<br><strong>Vence:</strong> '+d.dueDate : ''}`;
-    
-    // Rellenar Cliente
-    document.getElementById('pdf-cli-name').innerText = d.client.name;
-    document.getElementById('pdf-cli-meta').innerHTML = `${d.client.email}<br>${d.client.phone}`;
-    
-    // Estado
     const stamp = document.getElementById('pdf-status-stamp');
     if(d.type === 'Factura' && d.status === 'Pagada') { stamp.innerHTML = '<h2 style="color:#22c55e; border:4px solid #22c55e; padding:10px; transform:rotate(-15deg); display:inline-block; text-transform:uppercase;">PAGADA</h2>'; } else stamp.innerHTML = '';
 
-    // Tabla
-    let table = d.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${cur}${i.cost.toFixed(2)}</td><td style="text-align:right;">${cur}${(i.cost * i.qty).toFixed(2)}</td></tr>`).join('');
-    if(d.type === 'Cotización' && d.totals.labor > 0) table += `<tr><td>Mano de Obra Estimada</td><td style="text-align:center;">-</td><td style="text-align:right;">-</td><td style="text-align:right;">${cur}${d.totals.labor.toFixed(2)}</td></tr>`;
+    let table = d.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${fMoney(i.cost, cur)}</td><td style="text-align:right;">${fMoney(i.cost * i.qty, cur)}</td></tr>`).join('');
+    if(d.type === 'Cotización' && d.totals.labor > 0) table += `<tr><td>Mano de Obra Estimada</td><td style="text-align:center;">-</td><td style="text-align:right;">-</td><td style="text-align:right;">${fMoney(d.totals.labor, cur)}</td></tr>`;
     document.getElementById('pdf-table-body').innerHTML = table;
     
-    // Totales
-    document.getElementById('pdf-sub').innerText = `${cur}${d.totals.subtotal.toFixed(2)}`;
-    document.getElementById('pdf-disc').innerText = `-${cur}${d.totals.discAmt.toFixed(2)}`; document.getElementById('pdf-row-disc').style.display = d.totals.discAmt > 0 ? 'flex' : 'none';
-    document.getElementById('pdf-tax').innerText = `+${cur}${d.totals.taxAmt.toFixed(2)}`; document.getElementById('pdf-row-tax').style.display = d.totals.taxAmt > 0 ? 'flex' : 'none';
-    document.getElementById('pdf-total').innerText = `${cur}${d.totals.total.toFixed(2)}`;
+    document.getElementById('pdf-sub').innerText = fMoney(d.totals.subtotal, cur);
+    document.getElementById('pdf-disc').innerText = `-${fMoney(d.totals.discAmt, cur)}`; document.getElementById('pdf-row-disc').style.display = d.totals.discAmt > 0 ? 'flex' : 'none';
+    document.getElementById('pdf-tax').innerText = `+${fMoney(d.totals.taxAmt, cur)}`; document.getElementById('pdf-row-tax').style.display = d.totals.taxAmt > 0 ? 'flex' : 'none';
+    document.getElementById('pdf-total').innerText = fMoney(d.totals.total, cur);
     document.getElementById('pdf-total-label').innerText = d.type === 'Factura' ? 'Total a Pagar:' : 'Total Sugerido:';
+    return container;
+  }
 
-    wrapper.style.display = 'block';
-    html2pdf().set({ margin: 0, filename: `${d.num}_${d.client.name.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } }).from(container).save().then(() => { wrapper.style.display = 'none'; showToast("¡PDF Generado!"); });
+  function genPDF(id) {
+    const d = documents.find(x => x.id === id); if(!d) return; showToast("Generando diseño...");
+    const container = prepPDF(d); document.getElementById('pdf-wrapper').style.display = 'block';
+    html2pdf().set({ margin: 0, filename: `${d.num}_${d.client.name.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } }).from(container).save().then(() => { document.getElementById('pdf-wrapper').style.display = 'none'; showToast("¡PDF Descargado!"); });
+  }
+
+  async function shareDoc(id) {
+    const d = documents.find(x => x.id === id); if(!d) return; showToast("Preparando archivo...");
+    const container = prepPDF(d); document.getElementById('pdf-wrapper').style.display = 'block';
+    const opt = { margin: 0, filename: `${d.num}.pdf`, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
+    
+    try {
+      const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
+      document.getElementById('pdf-wrapper').style.display = 'none';
+      const file = new File([pdfBlob], `${d.num}_${d.client.name.replace(/\s+/g, '')}.pdf`, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ title: `Documento ${d.num}`, text: `Adjunto documento ${d.num} para ${d.client.name}`, files: [file] });
+      } else { showToast("Tu navegador no soporta compartir directo. El archivo se descargará."); genPDF(id); }
+    } catch(err) { document.getElementById('pdf-wrapper').style.display = 'none'; genPDF(id); }
   }
 </script>
 </body>
