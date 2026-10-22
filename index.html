@@ -304,8 +304,24 @@
   function initApp() { updateSelects(); renderDashboard(); renderQuotes(); renderInvoices(); renderAccounting(); renderPayables(); renderInv(); renderClients(); }
   function compressImage(file, callback) { const r = new FileReader(); r.onload = e => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); let w = img.width, h = img.height; const max = 250; if(w > h) { if(w > max) { h *= max/w; w = max; } } else { if(h > max) { w *= max/h; h = max; } } canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h); callback(canvas.toDataURL('image/jpeg', 0.7)); }; img.src = e.target.result; }; r.readAsDataURL(file); }
 
-  // PAYABLES (Cuentas por Pagar)
-  function savePayable() { const c = document.getElementById('p-concept').value, a = parseFloat(document.getElementById('p-amount').value), d = document.getElementById('p-date').value; if(!c || !a) return; payables.push({id: Date.now(), concept: c, amount: a, date: d, status: 'Pendiente'}); localStorage.setItem('cifra_pay', JSON.stringify(payables)); document.getElementById('p-concept').value=''; document.getElementById('p-amount').value='0'; initApp(); showToast("Deuda registrada"); }
+  // PAYABLES (Cuentas por Pagar) - Validación Reforzada
+  function savePayable() { 
+    const c = document.getElementById('p-concept').value;
+    const a = parseFloat(document.getElementById('p-amount').value);
+    const d = document.getElementById('p-date').value; 
+    
+    if(!c || isNaN(a) || a <= 0) { 
+      showToast("Ingresa un concepto y un monto válido."); 
+      return; 
+    }
+    
+    payables.push({id: Date.now(), concept: c, amount: a, date: d, status: 'Pendiente'}); 
+    localStorage.setItem('cifra_pay', JSON.stringify(payables)); 
+    document.getElementById('p-concept').value=''; 
+    document.getElementById('p-amount').value='0'; 
+    initApp(); 
+    showToast("Deuda registrada"); 
+  }
   function togglePayableStatus(id, stat) { const p = payables.find(x => x.id === id); if(p) { p.status = stat; localStorage.setItem('cifra_pay', JSON.stringify(payables)); initApp(); } }
   function delPayable(id) { payables = payables.filter(p => p.id !== id); localStorage.setItem('cifra_pay', JSON.stringify(payables)); initApp(); }
   function renderPayables() { const cur = document.getElementById('currency').value; document.getElementById('payables-list').innerHTML = payables.map(p => `<div class="item-row"><div><strong>${p.concept}</strong><br><small>${p.date ? 'Vence: '+p.date : 'Sin fecha'} | ${fMoney(p.amount, cur)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="font-size:11px;padding:2px;" onchange="togglePayableStatus(${p.id}, this.value)"><option value="Pendiente" ${p.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${p.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delPayable(${p.id})">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cuentas por pagar.</p>'; }
@@ -344,18 +360,32 @@
   function convertAndSave() { document.getElementById('doc-type').value = 'Factura'; toggleDocUI(); saveDoc(true); }
 
   function saveDoc(isConverting = false) {
-    const name = document.getElementById('doc-client-name').value, type = document.getElementById('doc-type').value; if(!name || currentItems.length === 0) return showToast("Faltan datos");
+    const name = document.getElementById('doc-client-name').value, type = document.getElementById('doc-type').value; 
+    if(!name || currentItems.length === 0) { showToast("Faltan datos en el documento"); return; }
+    
     let docNum = `COT-${Date.now().toString().slice(-4)}`; 
     if(type === 'Factura') { docNum = `FAC-${(documents.filter(d=>d.type==='Factura').length+1).toString().padStart(4,'0')}`; }
     const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; if(oldDoc && oldDoc.type === type) docNum = oldDoc.num; 
+    
     let deduct = false; if (type === 'Factura') { if (!oldDoc || oldDoc.type === 'Cotización' || isConverting) deduct = true; }
     if (deduct) { currentItems.forEach(item => { const i = inventory.find(x => x.id === item.id); if(i) i.stock = Math.max(0, i.stock - item.qty); }); localStorage.setItem('cifra_inv', JSON.stringify(inventory)); }
     
     const pm = document.getElementById('doc-payment').value;
-    const doc = { id: editDocId || Date.now(), num: docNum, type, date: new Date().toLocaleDateString(), dueDate: document.getElementById('doc-due-date').value, paymentMethod: pm, client: { name, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value }, items: [...currentItems], totals: docTotals, status: (type==='Factura' && pm==='Crédito') ? 'Crédito' : (type==='Factura' ? 'Sin Pagar' : 'Activa') };
+    
+    // ASIGNACIÓN INTELIGENTE DE ESTADO (Vincula Método de Pago con Contabilidad)
+    let finalStatus = 'Activa';
+    if (type === 'Factura') {
+      if (pm === 'Crédito') finalStatus = 'Crédito'; // Se va a Cuentas por Cobrar
+      else if (pm === 'Efectivo' || pm === 'Transferencia') finalStatus = 'Pagada'; // Se va a Ganancias
+      else finalStatus = 'Pendiente';
+    }
+    // Preservar estado anterior si es edición de factura y no conversión
+    if (oldDoc && oldDoc.type === 'Factura' && !isConverting) finalStatus = oldDoc.status;
+
+    const doc = { id: editDocId || Date.now(), num: docNum, type, date: new Date().toLocaleDateString(), dueDate: document.getElementById('doc-due-date').value, paymentMethod: pm, client: { name, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value }, items: [...currentItems], totals: docTotals, status: finalStatus };
     
     if(editDocId) { const idx = documents.findIndex(d => d.id === editDocId); documents[idx] = doc; } else documents.unshift(doc);
-    localStorage.setItem('cifra_docs', JSON.stringify(documents)); showToast("Guardado"); initApp(); navTo(type === 'Factura' ? 'sec-invoices' : 'sec-quotes');
+    localStorage.setItem('cifra_docs', JSON.stringify(documents)); showToast("Guardado Exitosamente"); initApp(); navTo(type === 'Factura' ? 'sec-invoices' : 'sec-quotes');
   }
 
   function editDoc(id) {
