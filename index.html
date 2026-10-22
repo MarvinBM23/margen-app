@@ -20,7 +20,7 @@
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; }
     input, select { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 14px; outline: none; margin-bottom: 16px; }
-    input[type="color"] { padding: 4px; height: 45px; }
+    input[type="color"] { padding: 4px; height: 45px; cursor: pointer; }
     .row { display: flex; gap: 12px; } .row > div { flex: 1; }
     .btn { width: 100%; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
     .btn-primary { background: var(--text); color: var(--bg); }
@@ -38,11 +38,7 @@
     .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--input-bg); border-radius: 8px; margin-bottom: 8px; }
     .widget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
     .widget { background: var(--nav-bg); border: 1px solid var(--border); padding: 16px; border-radius: 12px; text-align: center; }
-    #toast { visibility: hidden; min-width: 250px; background-color: var(--accent); color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: 600; font-size: 14px; z-index: 2000; opacity: 0; transition: 0.3s; }
-    #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
-    .prod-img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: var(--nav-bg); }
     
-    /* Scroll Horizontal de Productos */
     .horiz-scroll { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; }
     .horiz-scroll::-webkit-scrollbar { display: none; }
     .prod-card { min-width: 140px; max-width:140px; background: var(--nav-bg); padding: 12px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
@@ -51,8 +47,12 @@
     .prod-card p { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
     .btn-group { display: flex; gap: 4px; }
     .btn-group button { padding: 6px; font-size: 11px; flex: 1; }
+    .prod-img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: var(--nav-bg); }
 
-    /* PDF Oculto */
+    #toast { visibility: hidden; min-width: 250px; background-color: var(--accent); color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); font-weight: 600; font-size: 14px; z-index: 2000; opacity: 0; transition: 0.3s; }
+    #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+    
+    /* PDF */
     #pdf-wrapper { display: none; position: absolute; top: 0; left: 0; z-index: -100; }
     #pdf-container { width: 800px; background: white; padding: 40px; color: black; box-sizing: border-box; }
     .pdf-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -62,6 +62,7 @@
 <body>
 
 <div class="container">
+
   <!-- AUTH -->
   <div id="view-auth" class="view" style="justify-content: center; align-items: center;">
     <h1 style="color:var(--accent); font-size: 32px; margin-bottom: 30px;">Cifra</h1>
@@ -91,7 +92,7 @@
       <button class="menu-item" onclick="navTo('sec-accounting', this)">📊 Contabilidad</button>
       <button class="menu-item" onclick="navTo('sec-inventory', this)">📦 Inventario</button>
       <button class="menu-item" onclick="navTo('sec-clients', this)">👥 Clientes</button>
-      <button class="menu-item" onclick="navTo('sec-settings', this)">⚙️ Ajustes de PDF</button>
+      <button class="menu-item" onclick="navTo('sec-settings', this)">⚙️ Ajustes y Backups</button>
       <button class="menu-item" onclick="navTo('sec-help', this)">📖 Instructivo</button>
       <button class="menu-item" onclick="toggleTheme()">☀️ Cambiar Tema</button>
       <button class="menu-item" style="color:var(--danger); margin-top:20px;" onclick="logout()">Salir</button>
@@ -176,7 +177,7 @@
       <div class="widget-grid">
         <div class="widget"><p>Ganancias Netas (Facturado)</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div>
         <div class="widget"><p>Impuestos Recaudados</p><h3 id="acc-tax">$0.00</h3></div>
-        <div class="widget" style="grid-column: span 2;"><p>Valor Neto del Inventario Existente (Costo Mínimo)</p><h3 id="acc-inv-value">$0.00</h3></div>
+        <div class="widget" style="grid-column: span 2;"><p>Valor Neto del Inventario Existente</p><h3 id="acc-inv-value">$0.00</h3></div>
       </div>
     </div>
 
@@ -186,8 +187,8 @@
         <h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3>
         <input type="text" id="i-name" placeholder="Nombre del Producto">
         <div class="row">
-          <div><label>Costo de Adquisición</label><input type="number" id="i-cost" value="0"></div>
-          <div><label>Precio de Venta</label><input type="number" id="i-price" value="0"></div>
+          <div><label>Costo Adquisición</label><input type="number" id="i-cost" value="0"></div>
+          <div><label>Precio Venta</label><input type="number" id="i-price" value="0"></div>
         </div>
         <label>Cantidad (Stock)</label>
         <input type="number" id="i-stock" value="0">
@@ -200,12 +201,23 @@
 
     <!-- CLIENTES -->
     <div id="sec-clients" class="app-section">
-      <div class="card"><input type="text" id="c-name" placeholder="Nombre"><input type="email" id="c-email" placeholder="Correo"><input type="text" id="c-address" placeholder="Teléfono / Dirección"><button class="btn btn-primary" onclick="saveClient()">Guardar</button></div>
+      <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3><input type="text" id="c-name" placeholder="Nombre"><input type="email" id="c-email" placeholder="Correo"><input type="text" id="c-address" placeholder="Teléfono / Dirección"><button class="btn btn-primary" onclick="saveClient()">Guardar</button></div>
       <div class="card"><div id="client-list"></div></div>
     </div>
 
-    <!-- CONFIGURACIÓN PDF -->
+    <!-- CONFIGURACIÓN PDF & BACKUP -->
     <div id="sec-settings" class="app-section">
+      <div class="card">
+        <h3 style="margin-bottom:15px; font-size:16px;">Respaldar Datos</h3>
+        <div class="row">
+          <button class="btn btn-primary" style="background:#3b82f6;" onclick="exportBackup()">📥 Exportar</button>
+          <div style="position:relative; flex:1;">
+            <button class="btn btn-outline" style="width:100%;">📤 Importar</button>
+            <input type="file" accept=".json" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onchange="importBackup(event)">
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h3 style="margin-bottom:15px; font-size:16px;">Apariencia PDF</h3>
         <div class="row"><div><label>Color Marca</label><input type="color" id="set-color" value="#111827"></div><div><label>Fuente</label><select id="set-font"><option value="Helvetica">Helvetica</option><option value="Times">Times New Roman</option></select></div></div>
@@ -226,9 +238,9 @@
     <div id="sec-help" class="app-section">
       <div class="card">
         <h3 style="margin-bottom:10px;">Manual de Uso Cifra</h3>
-        <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Inicio:</strong> Resumen de tu dinero. También puedes cotizar y facturar productos directamente desde su tarjeta.</p>
-        <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Cotizaciones:</strong> Si conviertes una cotización a Factura con el botón "Facturar", se descontará el producto del inventario automáticamente.</p>
-        <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Facturas:</strong> Las facturas creadas descuentan stock automáticamente. Las facturas "Pagadas" o "Procesadas" se suman a tu contabilidad.</p>
+        <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Inicio:</strong> Resumen de tu dinero. Puedes cotizar y facturar productos directamente desde su tarjeta.</p>
+        <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Cotizaciones:</strong> Si conviertes una cotización a Factura, se descontará el producto del inventario automáticamente.</p>
+        <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Facturas:</strong> Las facturas descuentan stock automáticamente. Las facturas "Pagadas" o "Procesadas" se suman a tu contabilidad.</p>
         <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Contabilidad:</strong> El "Costo de Adquisición" se usa aquí para calcular tu ganancia neta y evaluar el valor total de la mercancía que tienes guardada.</p>
         <p style="font-size:14px; margin-bottom:10px; color:var(--muted);"><strong>Inventario:</strong> El "Precio de Venta" es lo que aparecerá en los documentos para el cliente.</p>
       </div>
@@ -297,7 +309,6 @@
 
   function initApp() { updateSelects(); renderDashboard(); renderQuotes(); renderInvoices(); renderAccounting(); renderInv(); renderClients(); }
 
-  // --- IMAGEN REDIMENSIONADA ---
   function compressImage(file, callback) {
     const reader = new FileReader();
     reader.onload = e => {
@@ -345,7 +356,7 @@
     document.getElementById('doc-product-select').innerHTML = inventory.map(i => `<option value="${i.id}">${i.name} (${document.getElementById('currency').value}${i.price})</option>`).join(''); 
   }
 
-  // --- CREADOR DE DOCUMENTOS & INICIO RÁPIDO ---
+  // --- CREADOR DE DOCUMENTOS ---
   function openDocBuilder(type) { 
     clearDoc(); document.getElementById('doc-type').value = type; toggleDocUI();
     document.getElementById('doc-title-label').innerText = `Nueva ${type}`; 
@@ -389,7 +400,7 @@
     const discAmt = total * (discPct/100); total -= discAmt; 
     const taxAmt = total * (taxPct/100); total += taxAmt;
     
-    const profit = total - taxAmt - totalCost - labor; // Ganancia neta real descontando costo de adquisición y mano de obra
+    const profit = total - taxAmt - totalCost - labor; 
     
     docTotals = { subtotal, discAmt, taxAmt, total, cur, taxPct, discPct, labor, profit, totalCost }; 
     document.getElementById('s-sub').innerText = fMoney(subtotal, cur); 
@@ -406,13 +417,12 @@
     if(type === 'Factura') { docNum = `FAC-${(documents.filter(d=>d.type==='Factura').length+1).toString().padStart(4,'0')}`; }
     
     const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null;
-    if(oldDoc && oldDoc.type === type) docNum = oldDoc.num; // Mantener número original si no cambia el tipo
+    if(oldDoc && oldDoc.type === type) docNum = oldDoc.num; 
     
-    // Descuento automático de Kardex/Inventario al facturar
     let deductInventory = false;
     if (type === 'Factura') {
-      if (!oldDoc) deductInventory = true; // Factura nueva
-      else if (oldDoc.type === 'Cotización' || isConverting) deductInventory = true; // Convertida
+      if (!oldDoc) deductInventory = true; 
+      else if (oldDoc.type === 'Cotización' || isConverting) deductInventory = true; 
     }
     if (deductInventory) {
       currentItems.forEach(item => { const invItem = inventory.find(i => i.id === item.id); if(invItem) { invItem.stock = Math.max(0, invItem.stock - item.qty); }});
@@ -467,7 +477,6 @@
     documents.forEach(d => { if(d.type === 'Factura') fTotal += d.totals.total; else qTotal += d.totals.total; });
     document.getElementById('dash-inv-total').innerText = fMoney(fTotal, cur); document.getElementById('dash-quo-total').innerText = fMoney(qTotal, cur);
 
-    // Tarjetas de Producto en Inicio
     const invCards = document.getElementById('dash-inv-cards');
     invCards.innerHTML = inventory.length ? inventory.map(i => `
       <div class="prod-card">
@@ -484,12 +493,30 @@
 
   function renderAccounting() {
     const cur = document.getElementById('currency').value; let prof = 0, taxes = 0, invNet = 0;
-    documents.filter(d => d.type === 'Factura' && (d.status === 'Pagada' || d.status === 'Procesada')).forEach(d => { prof += d.totals.profit; taxes += d.totals.taxAmt; });
+    documents.filter(d => d.type === 'Factura' && (d.status === 'Pagada' || d.status === 'Procesada')).forEach(d => { prof += (d.totals.profit || 0); taxes += d.totals.taxAmt; });
     inventory.forEach(i => { invNet += (i.cost * i.stock); });
     document.getElementById('acc-profit').innerText = fMoney(prof, cur); document.getElementById('acc-tax').innerText = fMoney(taxes, cur); document.getElementById('acc-inv-value').innerText = fMoney(invNet, cur);
   }
 
-  // --- PDF ---
+  // --- BACKUP Y PDF ---
+  function exportBackup() {
+    const data = { inv: localStorage.getItem('cifra_inv'), cli: localStorage.getItem('cifra_cli'), docs: localStorage.getItem('cifra_docs'), set: localStorage.getItem('cifra_set') };
+    const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Cifra_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); showToast("Copia de seguridad descargada");
+  }
+  function importBackup(e) {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const d = JSON.parse(evt.target.result);
+        if(d.inv) localStorage.setItem('cifra_inv', d.inv); if(d.cli) localStorage.setItem('cifra_cli', d.cli);
+        if(d.docs) localStorage.setItem('cifra_docs', d.docs); if(d.set) localStorage.setItem('cifra_set', d.set);
+        alert("Datos restaurados correctamente. La app se reiniciará."); location.reload();
+      } catch(err) { alert("Archivo de copia de seguridad inválido."); }
+    }; reader.readAsText(file);
+  }
+
   function handleLogoUpload(e) { const r = new FileReader(); r.onload = evt => { settings.logo = evt.target.result; saveSettings(true); }; r.readAsDataURL(e.target.files[0]); }
   function saveSettings(silent=false) { settings.color = document.getElementById('set-color').value; settings.font = document.getElementById('set-font').value; settings.tplInv = document.getElementById('set-inv-tpl').value; settings.tplQuo = document.getElementById('set-quo-tpl').value; settings.name = document.getElementById('set-biz-name').value; settings.id = document.getElementById('set-biz-id').value; settings.address = document.getElementById('set-biz-address').value; localStorage.setItem('cifra_set', JSON.stringify(settings)); if(!silent) showToast("Ajustes guardados"); }
 
