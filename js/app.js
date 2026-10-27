@@ -101,6 +101,7 @@ function compressImage(file, callback) { const r = new FileReader(); r.onload = 
 
 function getRef(col) { return db.collection('users').doc(currentUser.uid).collection(col); }
 
+// CRUD
 function saveInv() { 
   const n = document.getElementById('i-name').value, c = parseFloat(document.getElementById('i-cost').value)||0, p = parseFloat(document.getElementById('i-price').value)||0, s = parseInt(document.getElementById('i-stock').value)||0, f = document.getElementById('i-img').files[0]; 
   if(!n) return; 
@@ -116,9 +117,10 @@ function editInv(id) { const i = inventory.find(x => x.id === id); if(!i) return
 function clearInvForm() { document.getElementById('i-name').value=''; document.getElementById('i-cost').value='0'; document.getElementById('i-price').value='0'; document.getElementById('i-stock').value='0'; document.getElementById('i-img').value=''; editInvId = null; document.getElementById('inv-form-title').innerText = "Añadir Producto"; document.getElementById('btn-save-inv').innerText = "Guardar Nube"; }
 function renderInv() { document.getElementById('inventory-list').innerHTML = inventory.map(i => `<div class="item-row"><div style="display:flex; gap:10px; align-items:center;">${i.img ? `<img src="${i.img}" class="prod-img">` : '<div class="prod-img"></div>'}<div><strong>${i.name}</strong><br><small>Venta: ${fMoney(i.price)} | Stock: ${i.stock}</small></div></div><div style="display:flex; gap:5px;"><button class="btn-small btn-outline" onclick="editInv('${i.id}')">✏️</button><button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delInv('${i.id}')">✖</button></div></div>`).join(''); }
 
-function saveClient() { const n = document.getElementById('c-name').value, e = document.getElementById('c-email').value, a = document.getElementById('c-address').value; if(!n) return; getRef('clients').add({name:n, email:e, address:a}); document.getElementById('c-name').value=''; document.getElementById('c-email').value=''; document.getElementById('c-address').value=''; showToast("Cliente Guardado"); }
+// CLIENTES CON RNC
+function saveClient() { const n = document.getElementById('c-name').value, e = document.getElementById('c-email').value, a = document.getElementById('c-address').value, rnc = document.getElementById('c-rnc').value; if(!n) return; getRef('clients').add({name:n, email:e, address:a, rnc: rnc}); document.getElementById('c-name').value=''; document.getElementById('c-email').value=''; document.getElementById('c-address').value=''; document.getElementById('c-rnc').value=''; showToast("Cliente Guardado"); }
 function delClient(id) { getRef('clients').doc(id).delete(); }
-function renderClients() { document.getElementById('client-list').innerHTML = clients.map(c => `<div class="item-row"><div><strong>${c.name}</strong><br><small>${c.email} | ${c.address}</small></div><button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delClient('${c.id}')">✖</button></div>`).join(''); }
+function renderClients() { document.getElementById('client-list').innerHTML = clients.map(c => `<div class="item-row"><div><strong>${c.name}</strong><br><small>${c.rnc ? 'RNC: '+c.rnc+' | ' : ''}${c.email} | ${c.address}</small></div><button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delClient('${c.id}')">✖</button></div>`).join(''); }
 function updateSelects() { document.getElementById('dl-clients').innerHTML = clients.map(c => `<option value="${c.name}">`).join(''); document.getElementById('doc-product-select').innerHTML = inventory.map(i => `<option value="${i.id}">${i.name} (${fMoney(i.price)})</option>`).join(''); }
 
 function savePayable() { const c = document.getElementById('p-concept').value, a = parseFloat(document.getElementById('p-amount').value), d = document.getElementById('p-date').value; if(!c || isNaN(a) || a<=0) return; getRef('payables').add({concept: c, amount: a, date: d, status: 'Pendiente'}); document.getElementById('p-concept').value=''; document.getElementById('p-amount').value='0'; showToast("Registrado"); }
@@ -131,10 +133,11 @@ function toggleReceivableStatus(id, stat) { getRef('receivables').doc(id).update
 function delReceivable(id) { getRef('receivables').doc(id).delete(); }
 function renderReceivables() { document.getElementById('receivables-list').innerHTML = receivables.map(r => `<div class="item-row"><div><strong>${r.concept}</strong><br><small>${r.date ? 'Vence: '+r.date : 'Sin fecha'} | ${fMoney(r.amount)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="font-size:11px;padding:2px;" onchange="toggleReceivableStatus('${r.id}', this.value)"><option value="Pendiente" ${r.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${r.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delReceivable('${r.id}')">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cuentas.</p>'; }
 
+// GENERADOR DE DOCUMENTOS Y TRANSACCIONES
 function openDocBuilder(type) { clearDoc(); document.getElementById('doc-type').value = type; toggleDocUI(); document.getElementById('doc-title-label').innerText = `Nueva ${type}`; navTo('sec-doc-builder'); }
 function toggleDocUI() { const type = document.getElementById('doc-type').value; document.getElementById('div-factura-options').style.display = type === 'Factura' ? 'flex' : 'none'; document.getElementById('btn-facturar-cot').style.display = type === 'Cotización' ? 'block' : 'none'; document.getElementById('btn-save-doc').innerText = type === 'Cotización' ? 'Guardar Cotización' : 'Guardar Factura'; }
 function startFromProd(type, prodId) { openDocBuilder(type); const p = inventory.find(x => x.id === prodId); if(p) { currentItems = [{id: p.id, name: p.name, cost: p.cost, price: p.price, qty: 1}]; renderDocItems(); calcDoc(); } }
-function fillClientData() { const name = document.getElementById('doc-client-name').value; const c = clients.find(x => x.name === name); if(c) { document.getElementById('doc-client-email').value = c.email; document.getElementById('doc-client-phone').value = c.address; } }
+function fillClientData() { const name = document.getElementById('doc-client-name').value; const c = clients.find(x => x.name === name); if(c) { document.getElementById('doc-client-email').value = c.email; document.getElementById('doc-client-phone').value = c.address; document.getElementById('doc-client-rnc').value = c.rnc || ''; } }
 function addDocItem() { const id = document.getElementById('doc-product-select').value, qty = parseFloat(document.getElementById('doc-qty').value); if(!id||isNaN(qty)) return; const prod = inventory.find(i => i.id === id); currentItems.push({id: prod.id, name: prod.name, cost: prod.cost, price: prod.price, qty}); document.getElementById('doc-qty').value='1'; renderDocItems(); calcDoc(); }
 function delDocItem(idx) { currentItems.splice(idx,1); renderDocItems(); calcDoc(); }
 function renderDocItems() { document.getElementById('doc-items-list').innerHTML = currentItems.map((item, idx) => `<div class="item-row"><span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><div>${fMoney(item.price * item.qty)} <button style="background:none;border:none;color:var(--danger);margin-left:10px;" onclick="delDocItem(${idx})">✖</button></div></div>`).join(''); }
@@ -154,19 +157,47 @@ function calcDoc() {
 
 async function convertAndSave() { document.getElementById('doc-type').value = 'Factura'; toggleDocUI(); saveDoc(true); }
 
+// GENERADOR SEGURO DE NUMERACIÓN (Firestore Transactions)
+async function getSequentialNumber(type) {
+  const counterRef = db.collection('users').doc(currentUser.uid).collection('config').doc('counters');
+  return await db.runTransaction(async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
+    const field = type === 'Factura' ? 'invoiceCount' : 'quoteCount';
+    const prefix = type === 'Factura' ? 'FAC-' : 'COT-';
+    let newCount = 1;
+    if (!counterDoc.exists) { transaction.set(counterRef, { [field]: newCount }, { merge: true }); } 
+    else { newCount = (counterDoc.data()[field] || 0) + 1; transaction.update(counterRef, { [field]: newCount }); }
+    return `${prefix}${newCount.toString().padStart(4, '0')}`;
+  });
+}
+
 async function saveDoc(isConverting = false) {
   const name = document.getElementById('doc-client-name').value, type = document.getElementById('doc-type').value; 
   if(!name || currentItems.length === 0) { showToast("Faltan datos"); return; }
-  let docNum = `COT-${Date.now().toString().slice(-4)}`; 
-  if(type === 'Factura') { docNum = `FAC-${(documents.filter(d=>d.type==='Factura').length+1).toString().padStart(4,'0')}`; }
-  const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; if(oldDoc && oldDoc.type === type) docNum = oldDoc.num; 
+  
+  showToast("Asegurando correlativo en el servidor...");
+  const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; 
+  let docNum = oldDoc ? oldDoc.num : '';
+  
+  // Solo genera un número transaccional si es un documento nuevo o una conversión a factura
+  if (!oldDoc || (oldDoc.type === 'Cotización' && type === 'Factura')) {
+    docNum = await getSequentialNumber(type);
+  }
+
   let deduct = false; if (type === 'Factura') { if (!oldDoc || oldDoc.type === 'Cotización' || isConverting) deduct = true; }
   if (deduct) { currentItems.forEach(item => { const i = inventory.find(x => x.id === item.id); if(i) getRef('inventory').doc(i.id).update({stock: Math.max(0, i.stock - item.qty)}); }); }
+  
   const pm = document.getElementById('doc-payment').value; let finalStatus = 'Activa';
   if (type === 'Factura') { if (pm === 'Crédito') finalStatus = 'Crédito'; else if (pm === 'Efectivo' || pm === 'Transferencia') finalStatus = 'Pagada'; else finalStatus = 'Pendiente'; }
   if (oldDoc && oldDoc.type === 'Factura' && !isConverting) finalStatus = oldDoc.status;
-  const doc = { num: docNum, type, date: new Date().toLocaleDateString(), dueDate: document.getElementById('doc-due-date').value, paymentMethod: pm, client: { name, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value }, items: [...currentItems], totals: docTotals, status: finalStatus };
-  if(editDocId) { await getRef('documents').doc(editDocId).update(doc); } else { await getRef('documents').add(doc); }
+  
+  const doc = { 
+    num: docNum, type, date: new Date().toLocaleDateString(), dueDate: document.getElementById('doc-due-date').value, paymentMethod: pm, 
+    client: { name, rnc: document.getElementById('doc-client-rnc').value, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value }, 
+    items: [...currentItems], totals: docTotals, status: finalStatus 
+  };
+  
+  if(editDocId && !isConverting) { await getRef('documents').doc(editDocId).update(doc); } else { await getRef('documents').add(doc); }
   showToast("Guardado en Nube"); navTo(type === 'Factura' ? 'sec-invoices' : 'sec-quotes');
 }
 
@@ -174,10 +205,10 @@ function editDoc(id) {
   const d = documents.find(x => x.id === id); if(!d) return; openDocBuilder(d.type); document.getElementById('doc-title-label').innerText = "Editando " + d.num; editDocId = d.id;
   if(d.dueDate) document.getElementById('doc-due-date').value = d.dueDate;
   if(d.paymentMethod) document.getElementById('doc-payment').value = d.paymentMethod;
-  document.getElementById('doc-client-name').value = d.client.name; document.getElementById('doc-client-email').value = d.client.email; document.getElementById('doc-client-phone').value = d.client.phone;
+  document.getElementById('doc-client-name').value = d.client.name; document.getElementById('doc-client-rnc').value = d.client.rnc || ''; document.getElementById('doc-client-email').value = d.client.email; document.getElementById('doc-client-phone').value = d.client.phone;
   currentItems = [...d.items]; document.getElementById('doc-tax').value = d.totals.taxPct; document.getElementById('doc-disc').value = d.totals.discPct; renderDocItems(); calcDoc();
 }
-function clearDoc() { editDocId = null; document.getElementById('doc-client-name').value=''; document.getElementById('doc-client-email').value=''; document.getElementById('doc-client-phone').value=''; currentItems=[]; renderDocItems(); calcDoc(); }
+function clearDoc() { editDocId = null; document.getElementById('doc-client-name').value=''; document.getElementById('doc-client-rnc').value=''; document.getElementById('doc-client-email').value=''; document.getElementById('doc-client-phone').value=''; currentItems=[]; renderDocItems(); calcDoc(); }
 function changeStatus(id, newStatus) { getRef('documents').doc(id).update({status: newStatus}); }
 function delDoc(id) { getRef('documents').doc(id).delete(); }
 
@@ -241,9 +272,10 @@ function genPDF(id) {
   const w = document.getElementById('pdf-wrapper'), c = document.getElementById('pdf-container'), h = document.getElementById('pdf-header'); c.style.fontFamily = settings.font;
   if(settings.tplInv === 'modern') { h.style.background = settings.color; h.style.color = '#fff'; h.style.borderBottom = 'none'; document.getElementById('pdf-type').style.color = '#fff'; document.getElementById('pdf-total-row').style.color = settings.color; } else { h.style.background = 'transparent'; h.style.color = '#000'; h.style.borderBottom = `4px solid ${settings.color}`; document.getElementById('pdf-type').style.color = settings.color; document.getElementById('pdf-total-row').style.color = settings.color; }
   document.getElementById('pdf-logo-img').src = settings.logo || ''; document.getElementById('pdf-logo-img').style.display = settings.logo ? 'block' : 'none';
-  document.getElementById('pdf-biz-name').innerText = settings.name; document.getElementById('pdf-biz-meta').innerHTML = `${settings.id?'ID: '+settings.id+'<br>':''}${settings.address}`;
+  document.getElementById('pdf-biz-name').innerText = settings.name; document.getElementById('pdf-biz-meta').innerHTML = `${settings.id?'RNC: '+settings.id+'<br>':''}${settings.address}`;
   document.getElementById('pdf-type').innerText = d.type; document.getElementById('pdf-meta').innerHTML = `<strong>Nº:</strong> ${d.num}<br><strong>Fecha:</strong> ${d.date}${d.dueDate?'<br><strong>Vence:</strong> '+d.dueDate:''}${d.paymentMethod ? '<br><strong>Pago:</strong> '+d.paymentMethod : ''}`;
-  document.getElementById('pdf-cli-name').innerText = d.client.name; document.getElementById('pdf-cli-meta').innerHTML = `${d.client.email}<br>${d.client.phone}`;
+  document.getElementById('pdf-cli-name').innerText = d.client.name; 
+  document.getElementById('pdf-cli-meta').innerHTML = `${d.client.rnc?'RNC/Cédula: '+d.client.rnc+'<br>':''}${d.client.email}<br>${d.client.phone}`;
   const st = document.getElementById('pdf-status-stamp'); if(d.type==='Factura' && d.status==='Pagada') st.innerHTML = '<h2 style="color:#22c55e;border:4px solid #22c55e;padding:10px;transform:rotate(-15deg);display:inline-block;">PAGADA</h2>'; else st.innerHTML = '';
   
   let table = d.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${fMoney(i.price, cur)}</td><td style="text-align:right;">${fMoney(i.price * i.qty, cur)}</td></tr>`).join('');
