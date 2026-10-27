@@ -14,7 +14,7 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 let inventory = [], clients = [], documents = [], payables = [], receivables = [], settings = {};
-let currentItems = [], docTotals = {}, editDocId = null, editInvId = null, currentUser = null;
+let currentItems = [], docTotals = {}, editDocId = null, editInvId = null, currentUser = null, currentBusinessId = null;
 let exchangeRates = { USD: 1, DOP: 58.5, EUR: 0.92 };
 
 async function fetchRates() {
@@ -49,13 +49,24 @@ function toggleAuthForm() {
   if(l.style.display === 'none') { l.style.display = 'block'; r.style.display = 'none'; } else { l.style.display = 'none'; r.style.display = 'block'; }
 }
 
+// REGISTRO SAAS MULTIEMPRESA
 async function register() {
   const e = document.getElementById('reg-email').value, p = document.getElementById('reg-pass').value, n = document.getElementById('reg-name').value, ph = document.getElementById('reg-phone').value, id = document.getElementById('reg-id').value, dob = document.getElementById('reg-dob').value, loc = document.getElementById('reg-loc').value;
-  if(!e || !p || !n) return showToast("Faltan datos obligatorios");
+  if(!e || !p || !n || !loc) return showToast("Faltan datos (Incluye Ubicación/Negocio)");
   try {
     showView('view-loading');
     const cred = await auth.createUserWithEmailAndPassword(e, p);
-    await db.collection('users').doc(cred.user.uid).set({ name: n, phone: ph, documentId: id, dob: dob, location: loc, role: 'admin' });
+    
+    // 1. Crea la bóveda de la empresa
+    const bizRef = db.collection('businesses').doc();
+    await bizRef.set({ name: loc, ownerId: cred.user.uid, createdAt: Date.now() });
+    
+    // 2. Crea el perfil del usuario apuntando a la empresa
+    await db.collection('users').doc(cred.user.uid).set({ name: n, phone: ph, documentId: id, dob: dob, businessId: bizRef.id, role: 'Dueño' });
+    
+    // 3. Inicializa los contadores de la empresa
+    await bizRef.collection('config').doc('counters').set({ invoiceCount: 0, quoteCount: 0 });
+    
   } catch(err) { showView('view-auth'); showToast(err.message); }
 }
 
@@ -71,21 +82,36 @@ async function loadCloudData() {
   showView('view-loading');
   const uid = currentUser.uid;
   const profile = await db.collection('users').doc(uid).get();
-  if(profile.exists) {
-    const pData = profile.data();
-    const h = new Date().getHours(); const saludo = h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
-    document.getElementById('greeting').innerText = `${saludo}, ${pData.name} 👋`;
-    document.getElementById('user-display').innerText = pData.name;
-    document.getElementById('user-loc').innerText = pData.location || '';
+  
+  if(!profile.exists) { showToast("Error: Perfil no encontrado"); auth.signOut(); return; }
+  
+  const pData = profile.data();
+  currentBusinessId = pData.businessId;
+
+  // AUTO-MIGRACIÓN: Si es tu usuario antiguo, le crea una empresa automáticamente
+  if(!currentBusinessId) {
+    currentBusinessId = uid;
+    await db.collection('users').doc(uid).update({ businessId: currentBusinessId, role: 'Dueño' });
+    await db.collection('businesses').doc(currentBusinessId).set({ name: pData.location || 'Mi Negocio', ownerId: uid, createdAt: Date.now() });
+    pData.role = 'Dueño';
   }
 
-  db.collection('users').doc(uid).collection('inventory').onSnapshot(snap => { inventory = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); updateSelects(); });
-  db.collection('users').doc(uid).collection('clients').onSnapshot(snap => { clients = snap.docs.map(d => ({id: d.id, ...d.data()})); renderClients(); updateSelects(); });
-  db.collection('users').doc(uid).collection('documents').onSnapshot(snap => { documents = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
-  db.collection('users').doc(uid).collection('payables').onSnapshot(snap => { payables = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
-  db.collection('users').doc(uid).collection('receivables').onSnapshot(snap => { receivables = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
+  const bizSnap = await db.collection('businesses').doc(currentBusinessId).get();
+  const bizName = bizSnap.exists ? bizSnap.data().name : 'Empresa';
+
+  const h = new Date().getHours(); const saludo = h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
+  document.getElementById('greeting').innerText = `${saludo}, ${pData.name} 👋`;
+  document.getElementById('user-display').innerText = pData.name;
+  document.getElementById('user-loc').innerText = `${bizName} (${pData.role})`;
+
+  // APUNTA TODAS LAS LECTURAS A LA EMPRESA
+  db.collection('businesses').doc(currentBusinessId).collection('inventory').onSnapshot(snap => { inventory = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); updateSelects(); });
+  db.collection('businesses').doc(currentBusinessId).collection('clients').onSnapshot(snap => { clients = snap.docs.map(d => ({id: d.id, ...d.data()})); renderClients(); updateSelects(); });
+  db.collection('businesses').doc(currentBusinessId).collection('documents').onSnapshot(snap => { documents = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
+  db.collection('businesses').doc(currentBusinessId).collection('payables').onSnapshot(snap => { payables = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
+  db.collection('businesses').doc(currentBusinessId).collection('receivables').onSnapshot(snap => { receivables = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
   
-  const setSnap = await db.collection('users').doc(uid).collection('config').doc('settings').get();
+  const setSnap = await db.collection('businesses').doc(currentBusinessId).collection('config').doc('settings').get();
   if(setSnap.exists) { settings = setSnap.data(); document.getElementById('set-color').value = settings.color||'#111827'; document.getElementById('set-font').value = settings.font||'Helvetica'; document.getElementById('set-inv-tpl').value = settings.tplInv||'modern'; document.getElementById('set-biz-name').value = settings.name||''; document.getElementById('set-biz-id').value = settings.id||''; document.getElementById('set-biz-address').value = settings.address||''; }
 
   showView('view-app');
@@ -99,30 +125,20 @@ function toggleTheme() { const isLight = document.body.classList.toggle('light-m
 function showToast(msg) { const t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3000); }
 function compressImage(file, callback) { const r = new FileReader(); r.onload = e => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); let w = img.width, h = img.height; const max = 250; if(w > h) { if(w > max) { h *= max/w; w = max; } } else { if(h > max) { w *= max/h; h = max; } } canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h); callback(canvas.toDataURL('image/jpeg', 0.7)); }; img.src = e.target.result; }; r.readAsDataURL(file); }
 
-function getRef(col) { return db.collection('users').doc(currentUser.uid).collection(col); }
+// RUTA MAESTRA SAAS
+function getRef(col) { return db.collection('businesses').doc(currentBusinessId).collection(col); }
 
-// SISTEMA DE KARDEX Y MOVIMIENTOS
 async function logMovement(prodId, prodName, change, newStock, description) {
   if (change === 0) return;
-  await getRef('inventory_movements').add({
-    productId: prodId,
-    productName: prodName,
-    change: change,
-    stockAfter: newStock,
-    description: description,
-    date: new Date().toISOString()
-  });
+  await getRef('inventory_movements').add({ productId: prodId, productName: prodName, change: change, stockAfter: newStock, description: description, date: new Date().toISOString() });
 }
 
-// INVENTARIO
 function saveInv() { 
   const n = document.getElementById('i-name').value, c = parseFloat(document.getElementById('i-cost').value)||0, p = parseFloat(document.getElementById('i-price').value)||0, s = parseInt(document.getElementById('i-stock').value)||0, f = document.getElementById('i-img').files[0]; 
   if(!n) return; 
   const cb = async (imgData) => { 
     const data = { name:n, cost:c, price:p, stock:s, img: imgData };
-    let change = s;
-    let desc = "Inventario inicial";
-    
+    let change = s; let desc = "Inventario inicial";
     if(editInvId) { 
       const oldProd = inventory.find(i => i.id === editInvId);
       change = s - (oldProd ? oldProd.stock : 0);
@@ -142,34 +158,18 @@ function editInv(id) { const i = inventory.find(x => x.id === id); if(!i) return
 function clearInvForm() { document.getElementById('i-name').value=''; document.getElementById('i-cost').value='0'; document.getElementById('i-price').value='0'; document.getElementById('i-stock').value='0'; document.getElementById('i-img').value=''; editInvId = null; document.getElementById('inv-form-title').innerText = "Añadir Producto"; document.getElementById('btn-save-inv').innerText = "Guardar Nube"; }
 function renderInv() { document.getElementById('inventory-list').innerHTML = inventory.map(i => `<div class="item-row"><div style="display:flex; gap:10px; align-items:center;">${i.img ? `<img src="${i.img}" class="prod-img">` : '<div class="prod-img"></div>'}<div><strong>${i.name}</strong><br><small>Venta: ${fMoney(i.price)} | Stock: ${i.stock}</small></div></div><div style="display:flex; gap:5px;"><button class="btn-small btn-outline" onclick="editInv('${i.id}')">✏️</button><button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delInv('${i.id}')">✖</button></div></div>`).join(''); }
 
-// CLIENTES Y CRM MODAL
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 function openClientProfile(id) {
   const c = clients.find(x => x.id === id); if(!c) return;
-  document.getElementById('mc-name').innerText = c.name;
-  document.getElementById('mc-contact').innerText = `${c.rnc ? 'RNC: '+c.rnc+' | ' : ''}${c.phone||c.address}`;
-  
-  let bought = 0, owed = 0;
-  const cDocs = documents.filter(d => d.client.name === c.name && d.type === 'Factura');
-  let htmlDocs = '';
-  
-  const targetCurrency = document.getElementById('currency').value;
-  const targetRate = exchangeRates[targetCurrency] || 1;
-
+  document.getElementById('mc-name').innerText = c.name; document.getElementById('mc-contact').innerText = `${c.rnc ? 'RNC: '+c.rnc+' | ' : ''}${c.phone||c.address}`;
+  let bought = 0, owed = 0; const cDocs = documents.filter(d => d.client.name === c.name && d.type === 'Factura'); let htmlDocs = '';
+  const targetCurrency = document.getElementById('currency').value; const targetRate = exchangeRates[targetCurrency] || 1;
   cDocs.forEach(d => {
-    const dRate = d.totals.exchangeRate || 1;
-    const localVal = (d.totals.total / dRate) * targetRate; // Convierte la factura vieja al equivalente actual
-    
-    if (d.status === 'Pagada') bought += localVal;
-    if (['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) owed += localVal;
-
+    const dRate = d.totals.exchangeRate || 1; const localVal = (d.totals.total / dRate) * targetRate; 
+    if (d.status === 'Pagada') bought += localVal; if (['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) owed += localVal;
     htmlDocs += `<div class="item-row" style="padding:6px;"><span style="font-size:12px;"><strong>${d.num}</strong><br>${d.date}</span><div style="text-align:right;"><span class="badge ${d.status==='Pagada'?'factura':''}">${d.status}</span><br><strong style="font-size:12px; color:var(--accent);">${fMoney(localVal)}</strong></div></div>`;
   });
-
-  document.getElementById('mc-bought').innerText = fMoney(bought);
-  document.getElementById('mc-owed').innerText = fMoney(owed);
-  document.getElementById('mc-docs').innerHTML = htmlDocs || '<p style="font-size:12px; color:var(--muted); text-align:center;">No hay facturas.</p>';
-  document.getElementById('modal-client').classList.add('active');
+  document.getElementById('mc-bought').innerText = fMoney(bought); document.getElementById('mc-owed').innerText = fMoney(owed); document.getElementById('mc-docs').innerHTML = htmlDocs || '<p style="font-size:12px; color:var(--muted); text-align:center;">No hay facturas.</p>'; document.getElementById('modal-client').classList.add('active');
 }
 
 function saveClient() { const n = document.getElementById('c-name').value, e = document.getElementById('c-email').value, a = document.getElementById('c-address').value, rnc = document.getElementById('c-rnc').value; if(!n) return; getRef('clients').add({name:n, email:e, address:a, rnc: rnc, timestamp: Date.now()}); document.getElementById('c-name').value=''; document.getElementById('c-email').value=''; document.getElementById('c-address').value=''; document.getElementById('c-rnc').value=''; showToast("Cliente Guardado"); }
@@ -177,7 +177,6 @@ function delClient(id) { getRef('clients').doc(id).delete(); }
 function renderClients() { document.getElementById('client-list').innerHTML = clients.map(c => `<div class="item-row"><div><strong>${c.name}</strong><br><small>${c.rnc ? 'RNC: '+c.rnc+' | ' : ''}${c.email} | ${c.address}</small></div><div style="display:flex;gap:5px;"><button class="btn-small btn-outline" onclick="openClientProfile('${c.id}')">Ver Perfil</button><button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delClient('${c.id}')">✖</button></div></div>`).join(''); }
 function updateSelects() { document.getElementById('dl-clients').innerHTML = clients.map(c => `<option value="${c.name}">`).join(''); document.getElementById('doc-product-select').innerHTML = inventory.map(i => `<option value="${i.id}">${i.name} (${fMoney(i.price)})</option>`).join(''); }
 
-// DEUDAS Y GASTOS (Se añadió timestamp)
 function savePayable() { const c = document.getElementById('p-concept').value, a = parseFloat(document.getElementById('p-amount').value), d = document.getElementById('p-date').value; if(!c || isNaN(a) || a<=0) return; getRef('payables').add({concept: c, amount: a, date: d, status: 'Pendiente', timestamp: Date.now()}); document.getElementById('p-concept').value=''; document.getElementById('p-amount').value='0'; showToast("Registrado"); }
 function togglePayableStatus(id, stat) { getRef('payables').doc(id).update({status: stat}); }
 function delPayable(id) { getRef('payables').doc(id).delete(); }
@@ -188,7 +187,6 @@ function toggleReceivableStatus(id, stat) { getRef('receivables').doc(id).update
 function delReceivable(id) { getRef('receivables').doc(id).delete(); }
 function renderReceivables() { document.getElementById('receivables-list').innerHTML = receivables.map(r => `<div class="item-row"><div><strong>${r.concept}</strong><br><small>${r.date ? 'Vence: '+r.date : 'Sin fecha'} | ${fMoney(r.amount)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="font-size:11px;padding:2px;" onchange="toggleReceivableStatus('${r.id}', this.value)"><option value="Pendiente" ${r.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${r.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delReceivable('${r.id}')">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cuentas.</p>'; }
 
-// GENERADOR DE DOCUMENTOS (Se añadió timestamp al guardar)
 function openDocBuilder(type) { clearDoc(); document.getElementById('doc-type').value = type; toggleDocUI(); document.getElementById('doc-title-label').innerText = `Nueva ${type}`; navTo('sec-doc-builder'); }
 function toggleDocUI() { const type = document.getElementById('doc-type').value; document.getElementById('div-factura-options').style.display = type === 'Factura' ? 'flex' : 'none'; document.getElementById('btn-facturar-cot').style.display = type === 'Cotización' ? 'block' : 'none'; document.getElementById('btn-save-doc').innerText = type === 'Cotización' ? 'Guardar Cotización' : 'Guardar Factura'; }
 function startFromProd(type, prodId) { openDocBuilder(type); const p = inventory.find(x => x.id === prodId); if(p) { currentItems = [{id: p.id, name: p.name, cost: p.cost, price: p.price, qty: 1}]; renderDocItems(); calcDoc(); } }
@@ -201,11 +199,8 @@ function calcDoc() {
   const cur = document.getElementById('currency').value;
   const subtotal = currentItems.reduce((s, i) => s + (i.price * i.qty), 0), totalCost = currentItems.reduce((s, i) => s + (i.cost * i.qty), 0);
   const taxPct = parseFloat(document.getElementById('doc-tax').value)||0, discPct = parseFloat(document.getElementById('doc-disc').value)||0;
-  let total = subtotal, labor = 0;
-  labor = (parseFloat(document.getElementById('doc-hours').value)||0) * (parseFloat(document.getElementById('doc-rate').value)||0); 
-  total += labor; 
-  const discAmt = total * (discPct/100); total -= discAmt; const taxAmt = total * (taxPct/100); total += taxAmt;
-  const profit = total - taxAmt - totalCost; 
+  let total = subtotal, labor = 0; labor = (parseFloat(document.getElementById('doc-hours').value)||0) * (parseFloat(document.getElementById('doc-rate').value)||0); 
+  total += labor; const discAmt = total * (discPct/100); total -= discAmt; const taxAmt = total * (taxPct/100); total += taxAmt; const profit = total - taxAmt - totalCost; 
   docTotals = { subtotal, discAmt, taxAmt, total, taxPct, discPct, labor, profit, totalCost, currency: cur, exchangeRate: exchangeRates[cur] || 1 }; 
   document.getElementById('s-sub').innerText = fMoney(subtotal); document.getElementById('s-total-label').innerText = document.getElementById('doc-type').value === 'Factura' ? 'Total:' : 'Sugerido:'; document.getElementById('s-final').innerText = fMoney(total);
 }
@@ -213,7 +208,7 @@ function calcDoc() {
 async function convertAndSave() { document.getElementById('doc-type').value = 'Factura'; toggleDocUI(); saveDoc(true); }
 
 async function getSequentialNumber(type) {
-  const counterRef = db.collection('users').doc(currentUser.uid).collection('config').doc('counters');
+  const counterRef = db.collection('businesses').doc(currentBusinessId).collection('config').doc('counters');
   return await db.runTransaction(async (transaction) => {
     const counterDoc = await transaction.get(counterRef);
     const field = type === 'Factura' ? 'invoiceCount' : 'quoteCount';
@@ -228,26 +223,17 @@ async function getSequentialNumber(type) {
 async function saveDoc(isConverting = false) {
   const name = document.getElementById('doc-client-name').value, type = document.getElementById('doc-type').value; 
   if(!name || currentItems.length === 0) { showToast("Faltan datos en el documento"); return; }
-  
-  const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; 
-  let docNum = oldDoc ? oldDoc.num : '';
+  const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; let docNum = oldDoc ? oldDoc.num : '';
   
   let stockUpdates = [];
   if (type === 'Factura') {
     for (const item of currentItems) {
-      const prod = inventory.find(x => x.id === item.id);
-      if (!prod) continue;
-      
-      let oldQty = 0;
-      if (oldDoc && oldDoc.type === 'Factura' && !isConverting) {
-        const oldItem = oldDoc.items.find(x => x.id === item.id);
-        if (oldItem) oldQty = oldItem.qty;
-      }
+      const prod = inventory.find(x => x.id === item.id); if (!prod) continue;
+      let oldQty = 0; if (oldDoc && oldDoc.type === 'Factura' && !isConverting) { const oldItem = oldDoc.items.find(x => x.id === item.id); if (oldItem) oldQty = oldItem.qty; }
       const qtyDifference = item.qty - oldQty; 
       if (qtyDifference > 0 && prod.stock < qtyDifference) { showToast(`Stock insuficiente para: ${item.name}. Disponibles: ${prod.stock}`); return; }
       if (qtyDifference !== 0) { stockUpdates.push({ id: prod.id, name: prod.name, change: -qtyDifference, newStock: prod.stock - qtyDifference, desc: oldDoc && !isConverting ? `Edición Fac. ${docNum || 'Pendiente'}` : `Venta Fac. ${docNum || 'Pendiente'}` }); }
     }
-    
     if (oldDoc && oldDoc.type === 'Factura' && !isConverting) {
       for (const oldItem of oldDoc.items) {
         if (!currentItems.find(x => x.id === oldItem.id)) {
@@ -264,10 +250,7 @@ async function saveDoc(isConverting = false) {
     stockUpdates.forEach(update => { update.desc = update.desc.replace('Pendiente', docNum); });
   }
 
-  for (const update of stockUpdates) {
-    await getRef('inventory').doc(update.id).update({ stock: update.newStock });
-    await logMovement(update.id, update.name, update.change, update.newStock, update.desc);
-  }
+  for (const update of stockUpdates) { await getRef('inventory').doc(update.id).update({ stock: update.newStock }); await logMovement(update.id, update.name, update.change, update.newStock, update.desc); }
   
   const pm = document.getElementById('doc-payment').value; let finalStatus = 'Activa';
   if (type === 'Factura') { if (pm === 'Crédito') finalStatus = 'Crédito'; else if (pm === 'Efectivo' || pm === 'Transferencia') finalStatus = 'Pagada'; else finalStatus = 'Pendiente'; }
@@ -285,8 +268,7 @@ async function saveDoc(isConverting = false) {
 
 function editDoc(id) {
   const d = documents.find(x => x.id === id); if(!d) return; openDocBuilder(d.type); document.getElementById('doc-title-label').innerText = "Editando " + d.num; editDocId = d.id;
-  if(d.dueDate) document.getElementById('doc-due-date').value = d.dueDate;
-  if(d.paymentMethod) document.getElementById('doc-payment').value = d.paymentMethod;
+  if(d.dueDate) document.getElementById('doc-due-date').value = d.dueDate; if(d.paymentMethod) document.getElementById('doc-payment').value = d.paymentMethod;
   document.getElementById('doc-client-name').value = d.client.name; document.getElementById('doc-client-rnc').value = d.client.rnc || ''; document.getElementById('doc-client-email').value = d.client.email; document.getElementById('doc-client-phone').value = d.client.phone;
   currentItems = [...d.items]; document.getElementById('doc-tax').value = d.totals.taxPct; document.getElementById('doc-disc').value = d.totals.discPct; renderDocItems(); calcDoc();
 }
@@ -294,21 +276,15 @@ function clearDoc() { editDocId = null; document.getElementById('doc-client-name
 function changeStatus(id, newStatus) { getRef('documents').doc(id).update({status: newStatus}); }
 async function delDoc(id) { 
   if(!confirm("¿Estás seguro de eliminar este documento?")) return;
-  const docToDel = documents.find(x => x.id === id);
-  if(!docToDel) return;
+  const docToDel = documents.find(x => x.id === id); if(!docToDel) return;
   if (docToDel.type === 'Factura') {
     showToast("Restaurando stock...");
     for (const item of docToDel.items) {
       const prod = inventory.find(x => x.id === item.id);
-      if (prod) {
-        const newStock = prod.stock + item.qty;
-        await getRef('inventory').doc(prod.id).update({ stock: newStock });
-        await logMovement(prod.id, prod.name, item.qty, newStock, `Eliminación Fac. ${docToDel.num}`);
-      }
+      if (prod) { const newStock = prod.stock + item.qty; await getRef('inventory').doc(prod.id).update({ stock: newStock }); await logMovement(prod.id, prod.name, item.qty, newStock, `Eliminación Fac. ${docToDel.num}`); }
     }
   }
-  await getRef('documents').doc(id).delete(); 
-  showToast("Documento eliminado correctamente");
+  await getRef('documents').doc(id).delete(); showToast("Documento eliminado correctamente");
 }
 
 function renderDocList(type, containerId) {
@@ -320,17 +296,12 @@ function renderDocList(type, containerId) {
 }
 function renderQuotes() { renderDocList('Cotización', 'quote-list'); } function renderInvoices() { renderDocList('Factura', 'invoice-list'); }
 
-// SISTEMA DE FILTRO DE TIEMPO INTELIGENTE
 function filterByDate(docsArray) {
   const filter = document.getElementById('dash-filter') ? document.getElementById('dash-filter').value : 'month';
   if (filter === 'all') return docsArray;
-  
   const now = new Date();
   return docsArray.filter(d => {
-    // Convierte el timestamp nuevo, o hace fallback a parsear la fecha vieja
-    const dateObj = d.timestamp ? new Date(d.timestamp) : new Date(d.date);
-    if (isNaN(dateObj)) return true; // Mostrar si es un formato antiguo irreconocible
-    
+    const dateObj = d.timestamp ? new Date(d.timestamp) : new Date(d.date); if (isNaN(dateObj)) return true; 
     if (filter === 'today') return dateObj.getDate() === now.getDate() && dateObj.getMonth() === now.getMonth() && dateObj.getFullYear() === now.getFullYear();
     if (filter === 'month') return dateObj.getMonth() === now.getMonth() && dateObj.getFullYear() === now.getFullYear();
     if (filter === 'year') return dateObj.getFullYear() === now.getFullYear();
@@ -339,56 +310,33 @@ function filterByDate(docsArray) {
 }
 
 function renderDashboard() {
-  const targetCurrency = document.getElementById('currency').value;
-  const targetRate = exchangeRates[targetCurrency] || 1;
-  let fTot = 0, arTot = 0;
-  
-  const filteredDocs = filterByDate(documents);
-  const filteredReceivables = filterByDate(receivables);
-
+  const targetCurrency = document.getElementById('currency').value; const targetRate = exchangeRates[targetCurrency] || 1;
+  let fTot = 0, arTot = 0; const filteredDocs = filterByDate(documents); const filteredReceivables = filterByDate(receivables);
   filteredDocs.forEach(d => { 
-    const docRate = d.totals.exchangeRate || 1;
-    const normalizedUSD = d.totals.total / docRate; 
-    const valueInCurrentSelected = normalizedUSD * targetRate; 
-
+    const docRate = d.totals.exchangeRate || 1; const normalizedUSD = d.totals.total / docRate; const valueInCurrentSelected = normalizedUSD * targetRate; 
     if(d.type === 'Factura' && d.status === 'Pagada') fTot += valueInCurrentSelected; 
     if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) arTot += valueInCurrentSelected;
   });
-  
   filteredReceivables.filter(r => r.status === 'Pendiente').forEach(r => arTot += r.amount); 
-  
   document.getElementById('dash-inv-total').innerText = fMoney(fTot); document.getElementById('dash-quo-total').innerText = fMoney(arTot);
   document.getElementById('dash-inv-cards').innerHTML = inventory.map(i => `<div class="prod-card">${i.img ? `<img src="${i.img}">` : `<div style="width:100%;height:80px;background:var(--bg);border-radius:8px;margin-bottom:8px;"></div>`}<h4>${i.name}</h4><p>${fMoney(i.price)}<br>Stock: ${i.stock}</p><div class="btn-group"><button class="btn btn-outline" onclick="startFromProd('Cotización', '${i.id}')">Cotizar</button><button class="btn btn-primary" onclick="startFromProd('Factura', '${i.id}')">Facturar</button></div></div>`).join('') || '<p style="font-size:12px; color:var(--muted);">Vacío.</p>';
 }
 
 function renderAccounting() {
-  const targetCurrency = document.getElementById('currency').value;
-  const targetRate = exchangeRates[targetCurrency] || 1;
+  const targetCurrency = document.getElementById('currency').value; const targetRate = exchangeRates[targetCurrency] || 1;
   let prof = 0, taxes = 0, invNet = 0, ar = 0, ap = 0;
-  
-  const filteredDocs = filterByDate(documents);
-  const filteredReceivables = filterByDate(receivables);
-  const filteredPayables = filterByDate(payables);
-
+  const filteredDocs = filterByDate(documents); const filteredReceivables = filterByDate(receivables); const filteredPayables = filterByDate(payables);
   filteredDocs.forEach(d => {
-    const docRate = d.totals.exchangeRate || 1;
-    const localProfit = ((d.totals.profit || 0) / docRate) * targetRate;
-    const localTax = (d.totals.taxAmt / docRate) * targetRate;
-    const localTotal = (d.totals.total / docRate) * targetRate;
-
+    const docRate = d.totals.exchangeRate || 1; const localProfit = ((d.totals.profit || 0) / docRate) * targetRate; const localTax = (d.totals.taxAmt / docRate) * targetRate; const localTotal = (d.totals.total / docRate) * targetRate;
     if(d.type === 'Factura' && d.status === 'Pagada') { prof += localProfit; taxes += localTax; }
     if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) ar += localTotal;
   });
-
-  filteredReceivables.filter(r => r.status === 'Pendiente').forEach(r => ar += r.amount); 
-  filteredPayables.filter(p => p.status === 'Pendiente').forEach(p => ap += p.amount);
-  inventory.forEach(i => invNet += (i.cost * i.stock));
-  
+  filteredReceivables.filter(r => r.status === 'Pendiente').forEach(r => ar += r.amount); filteredPayables.filter(p => p.status === 'Pendiente').forEach(p => ap += p.amount); inventory.forEach(i => invNet += (i.cost * i.stock));
   document.getElementById('acc-profit').innerText = fMoney(prof); document.getElementById('acc-tax').innerText = fMoney(taxes); document.getElementById('acc-inv-value').innerText = fMoney(invNet); document.getElementById('acc-ar').innerText = fMoney(ar); document.getElementById('acc-ap').innerText = fMoney(ap);
 }
 
 function handleLogoUpload(e) { const r = new FileReader(); r.onload = evt => { settings.logo = evt.target.result; saveSettings(true); }; r.readAsDataURL(e.target.files[0]); }
-async function saveSettings(silent=false) { settings.color = document.getElementById('set-color').value; settings.font = document.getElementById('set-font').value; settings.tplInv = document.getElementById('set-inv-tpl').value; settings.name = document.getElementById('set-biz-name').value; settings.id = document.getElementById('set-biz-id').value; settings.address = document.getElementById('set-biz-address').value; await db.collection('users').doc(currentUser.uid).collection('config').doc('settings').set(settings); if(!silent) showToast("Configuración Nube Guardada"); }
+async function saveSettings(silent=false) { settings.color = document.getElementById('set-color').value; settings.font = document.getElementById('set-font').value; settings.tplInv = document.getElementById('set-inv-tpl').value; settings.name = document.getElementById('set-biz-name').value; settings.id = document.getElementById('set-biz-id').value; settings.address = document.getElementById('set-biz-address').value; await db.collection('businesses').doc(currentBusinessId).collection('config').doc('settings').set(settings); if(!silent) showToast("Configuración Nube Guardada"); }
 
 function genPDF(id) {
   const d = documents.find(x => x.id === id); if(!d) return; showToast("Generando..."); 
