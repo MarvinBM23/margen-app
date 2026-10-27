@@ -32,10 +32,19 @@ function fMoney(val, specificCurrency = null) {
   return symbol + val.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); 
 }
 
+let isRegistering = false; // Bandera para evitar que cargue antes de tiempo
+
 window.onload = () => {
   if(localStorage.getItem('marg_theme') === 'light') document.body.classList.add('light-mode');
   fetchRates();
-  auth.onAuthStateChanged(user => { if (user) { currentUser = user; loadCloudData(); } else { showView('view-auth'); } });
+  auth.onAuthStateChanged(user => { 
+    if (user) { 
+      currentUser = user; 
+      // Solo carga los datos si NO estamos en medio de un registro
+      if(!isRegistering) loadCloudData(); 
+    } 
+    else { showView('view-auth'); } 
+  });
 };
 
 function toggleAuthForm() {
@@ -47,11 +56,30 @@ async function register() {
   const e = document.getElementById('reg-email').value, p = document.getElementById('reg-pass').value, n = document.getElementById('reg-name').value, ph = document.getElementById('reg-phone').value, id = document.getElementById('reg-id').value, dob = document.getElementById('reg-dob').value, loc = document.getElementById('reg-loc').value;
   if(!e || !p || !n || !loc) return showToast("Faltan datos (Incluye Ubicación/Negocio)");
   try {
-    showView('view-loading'); const cred = await auth.createUserWithEmailAndPassword(e, p);
-    const bizRef = db.collection('businesses').doc(); await bizRef.set({ name: loc, ownerId: cred.user.uid, createdAt: Date.now() });
+    isRegistering = true; // Bloquea la carga automática
+    showView('view-loading'); 
+    
+    const cred = await auth.createUserWithEmailAndPassword(e, p);
+    
+    // Generamos el ID de la empresa sin guardarla todavía
+    const bizRef = db.collection('businesses').doc(); 
+    
+    // 1. Guardamos PRIMERO el usuario para que las reglas de seguridad lo autoricen
     await db.collection('users').doc(cred.user.uid).set({ name: n, phone: ph, documentId: id, dob: dob, businessId: bizRef.id, role: 'Dueño' });
+    
+    // 2. AHORA guardamos la empresa
+    await bizRef.set({ name: loc, ownerId: cred.user.uid, createdAt: Date.now() });
     await bizRef.collection('config').doc('counters').set({ invoiceCount: 0, quoteCount: 0 });
-  } catch(err) { showView('view-auth'); showToast(err.message); }
+    
+    isRegistering = false; // Desbloquea
+    loadCloudData(); // Ahora sí, carga el panel con seguridad
+
+  } catch(err) { 
+    isRegistering = false;
+    showView('view-auth'); 
+    showToast(err.message); 
+  }
+}
 }
 
 async function login() {
