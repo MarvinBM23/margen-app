@@ -7,20 +7,17 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f1115">
   
-  <!-- Dependencias Externas -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   
-  <!-- Estilos Centralizados -->
   <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 
 <div class="container">
   
-  <!-- VISTA DE AUTENTICACIÓN SEGURA -->
   <div id="view-auth" class="view" style="justify-content: center;">
     <h1 style="color:var(--accent); font-size: 32px; text-align:center; margin-bottom: 5px;">Cifra Cloud</h1>
     <p style="text-align:center; color:var(--muted); margin-bottom: 30px; font-size:14px;">Gestión Empresarial</p>
@@ -48,12 +45,10 @@
     </div>
   </div>
 
-  <!-- VISTA DE CARGA -->
   <div id="view-loading" class="view" style="justify-content: center; align-items: center;">
     <h2 style="color:var(--accent);">Conectando...</h2>
   </div>
 
-  <!-- APP PRINCIPAL -->
   <div id="view-app" class="view">
     <header>
       <button style="background:none; border:none; color:var(--text); font-size:24px;" onclick="toggleSidebar()">☰</button>
@@ -81,8 +76,17 @@
       <button class="menu-item" style="color:var(--danger); margin-top:20px;" onclick="logout()">Cerrar Sesión Segura</button>
     </div>
 
-    <!-- INICIO -->
+    <!-- INICIO Y FILTROS -->
     <div id="sec-dashboard" class="app-section active">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <h3 style="font-size:16px; margin:0;">Resumen Financiero</h3>
+        <select id="dash-filter" style="width:auto; margin:0; padding:6px; font-size:12px; background:var(--card-bg); border:1px solid var(--border); border-radius:6px; color:var(--text);" onchange="updateAllViews()">
+          <option value="all">Histórico</option>
+          <option value="today">Hoy</option>
+          <option value="month" selected>Este Mes</option>
+          <option value="year">Este Año</option>
+        </select>
+      </div>
       <p style="font-size:11px; text-align:right; color:var(--muted); margin-bottom:8px;" id="rate-info">Obteniendo tasa en vivo...</p>
       <div class="widget-grid">
         <div class="widget"><p>Ingresos Netos</p><h3 id="dash-inv-total" style="color:var(--accent);">$0.00</h3></div>
@@ -198,7 +202,22 @@
 
 <div id="toast">Notificación</div>
 
-<!-- PLANTILLA PDF (Oculta) - ADAPTADA PARA RNC E ITBIS -->
+<!-- MODAL PERFIL CLIENTE -->
+<div id="modal-client" class="modal-overlay">
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeModal('modal-client')">✖</button>
+    <h2 id="mc-name" style="margin-bottom:5px; color:var(--accent);">Nombre</h2>
+    <p id="mc-contact" style="font-size:13px; color:var(--muted); margin-bottom:15px;"></p>
+    <div class="widget-grid" style="grid-template-columns: 1fr 1fr;">
+      <div class="widget" style="padding:10px;"><p style="font-size:11px;">Total Facturado</p><h3 id="mc-bought" style="color:var(--accent); font-size:16px;">$0</h3></div>
+      <div class="widget" style="padding:10px;"><p style="font-size:11px;">Deuda Actual</p><h3 id="mc-owed" style="color:var(--warn); font-size:16px;">$0</h3></div>
+    </div>
+    <h4 style="font-size:14px; margin-bottom:10px;">Facturas del Cliente</h4>
+    <div id="mc-docs" style="max-height:200px; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- PLANTILLA PDF (Oculta) -->
 <div id="pdf-wrapper"><div id="pdf-container">
   <div id="pdf-header" style="padding: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
     <div><h1 style="font-size: 36px; margin: 0; text-transform:uppercase;" id="pdf-type">DOCUMENTO</h1><p style="margin-top:8px; font-size:14px;" id="pdf-meta"></p></div>
