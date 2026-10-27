@@ -35,7 +35,7 @@
     <div id="form-register" style="display:none;">
       <div class="row">
         <div><input type="text" id="reg-name" placeholder="Nombre completo"></div>
-        <div><input type="text" id="reg-id" placeholder="Cédula / RNC"></div>
+        <div><input type="text" id="reg-id" placeholder="Tu Cédula / RNC"></div>
       </div>
       <input type="text" id="reg-phone" placeholder="Teléfono">
       <input type="text" id="reg-loc" placeholder="Ubicación / Negocio">
@@ -81,6 +81,7 @@
       <button class="menu-item" style="color:var(--danger); margin-top:20px;" onclick="logout()">Cerrar Sesión Segura</button>
     </div>
 
+    <!-- INICIO -->
     <div id="sec-dashboard" class="app-section active">
       <p style="font-size:11px; text-align:right; color:var(--muted); margin-bottom:8px;" id="rate-info">Obteniendo tasa en vivo...</p>
       <div class="widget-grid">
@@ -97,20 +98,42 @@
       </div>
     </div>
 
+    <!-- CREADOR DE DOCUMENTOS -->
     <div id="sec-doc-builder" class="app-section">
       <div class="card">
         <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><h3 style="font-size:16px;" id="doc-title-label">Nuevo Documento</h3><button class="btn-small btn-outline" onclick="navTo('sec-dashboard')">Volver</button></div>
         <input type="hidden" id="doc-type">
-        <div class="row" id="div-factura-options" style="display:none;"><div><label>Vence el</label><input type="date" id="doc-due-date"></div><div><label>Método de Pago</label><select id="doc-payment"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Crédito">Crédito</option></select></div></div>
-        <label>Cliente</label><input list="dl-clients" id="doc-client-name" placeholder="Escribe el nombre..." onchange="fillClientData()"><datalist id="dl-clients"></datalist>
-        <div class="row"><div><input type="email" id="doc-client-email" placeholder="Correo"></div><div><input type="text" id="doc-client-phone" placeholder="Teléfono"></div></div>
+        <div class="row" id="div-factura-options" style="display:none;">
+          <div><label>Vence el</label><input type="date" id="doc-due-date"></div>
+          <div><label>Método de Pago</label><select id="doc-payment"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Crédito">Crédito</option></select></div>
+        </div>
+        
+        <label>Cliente</label>
+        <input list="dl-clients" id="doc-client-name" placeholder="Escribe el nombre..." onchange="fillClientData()">
+        <datalist id="dl-clients"></datalist>
+        
+        <input type="text" id="doc-client-rnc" placeholder="RNC / Cédula (Opcional)">
+        <div class="row">
+          <div><input type="email" id="doc-client-email" placeholder="Correo"></div>
+          <div><input type="text" id="doc-client-phone" placeholder="Teléfono"></div>
+        </div>
+        
         <hr style="border-top:1px solid var(--border); margin:15px 0;">
         <label>Añadir Producto</label>
         <div class="row"><div style="flex:2;"><select id="doc-product-select"></select></div><div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1"></div></div>
         <button class="btn btn-outline" style="padding:8px; margin-bottom:16px;" onclick="addDocItem()">+ Añadir</button>
         <div id="doc-items-list" style="margin-bottom: 20px;"></div>
-        <div class="row"><div><label>Impuesto (%)</label><input type="number" id="doc-tax" value="0" min="0" oninput="calcDoc()"></div><div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" oninput="calcDoc()"></div></div>
-        <div id="div-internal-calc"><label>Servicios / Mano de Obra (Adicional)</label><div class="row"><div><label>Horas</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div><div><label>Tarifa</label><input type="number" id="doc-rate" value="25" oninput="calcDoc()"></div></div></div>
+        
+        <div class="row">
+          <div><label>ITBIS (%)</label><input type="number" id="doc-tax" value="18" min="0" oninput="calcDoc()"></div>
+          <div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" oninput="calcDoc()"></div>
+        </div>
+        
+        <div id="div-internal-calc">
+          <label>Servicios / Mano de Obra (Adicional)</label>
+          <div class="row"><div><label>Horas</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div><div><label>Tarifa</label><input type="number" id="doc-rate" value="0" oninput="calcDoc()"></div></div>
+        </div>
+        
         <div class="card" style="background:var(--nav-bg); margin-top:15px; padding:12px;">
           <div class="row"><span style="color:var(--muted)">Subtotal:</span><span id="s-sub" style="text-align:right;">0.00</span></div>
           <div class="row" style="border-top:1px solid var(--border); padding-top:8px; margin-top:8px; font-weight:bold; font-size:18px; color:var(--accent);"><span id="s-total-label">Total:</span><span id="s-final" style="text-align:right;">0.00</span></div>
@@ -119,18 +142,41 @@
       <div id="doc-action-btns" style="display:flex; gap:10px;"><button class="btn btn-primary" style="flex:1;" id="btn-save-doc" onclick="saveDoc()">Guardar</button><button class="btn" style="flex:1; background:var(--accent); color:#fff; display:none;" id="btn-facturar-cot" onclick="convertAndSave()">Facturar Directo</button></div>
     </div>
 
+    <!-- LISTAS -->
     <div id="sec-quotes" class="app-section"><button class="btn btn-primary" style="margin-bottom:15px;" onclick="openDocBuilder('Cotización')">+ Cotización</button><div id="quote-list"></div></div>
     <div id="sec-invoices" class="app-section"><button class="btn btn-primary" style="margin-bottom:15px;" onclick="openDocBuilder('Factura')">+ Factura</button><div id="invoice-list"></div></div>
     
-    <div id="sec-accounting" class="app-section"><div class="widget-grid"><div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div><div class="widget"><p>Por Pagar (AP)</p><h3 id="acc-ap" style="color:var(--danger);">$0.00</h3></div><div class="widget"><p>Ganancia Neta Operativa</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div><div class="widget"><p>Impuestos</p><h3 id="acc-tax">$0.00</h3></div><div class="widget" style="grid-column: span 2;"><p>Valor Inventario Actual</p><h3 id="acc-inv-value">$0.00</h3></div></div></div>
+    <!-- CONTABILIDAD -->
+    <div id="sec-accounting" class="app-section"><div class="widget-grid"><div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div><div class="widget"><p>Por Pagar (AP)</p><h3 id="acc-ap" style="color:var(--danger);">$0.00</h3></div><div class="widget"><p>Ganancia Neta Operativa</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div><div class="widget"><p>Impuestos (ITBIS)</p><h3 id="acc-tax">$0.00</h3></div><div class="widget" style="grid-column: span 2;"><p>Valor Inventario Actual</p><h3 id="acc-inv-value">$0.00</h3></div></div></div>
 
     <div id="sec-receivables" class="app-section"><div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Deuda a tu favor</h3><input type="text" id="r-concept" placeholder="Cliente o Concepto"><div class="row"><div><label>Monto</label><input type="number" id="r-amount" value="0"></div><div><label>Vencimiento</label><input type="date" id="r-date"></div></div><button class="btn btn-primary" onclick="saveReceivable()">Guardar</button></div><div class="card"><div id="receivables-list"></div></div></div>
     
     <div id="sec-payables" class="app-section"><div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Gasto a pagar</h3><input type="text" id="p-concept" placeholder="Concepto o Proveedor"><div class="row"><div><label>Monto</label><input type="number" id="p-amount" value="0"></div><div><label>Vencimiento</label><input type="date" id="p-date"></div></div><button class="btn btn-primary" onclick="savePayable()">Guardar</button></div><div class="card"><div id="payables-list"></div></div></div>
 
-    <div id="sec-inventory" class="app-section"><div class="card"><h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3><input type="text" id="i-name" placeholder="Nombre del Producto"><div class="row"><div><label>Costo Adquisición</label><input type="number" id="i-cost" value="0"></div><div><label>Precio Venta</label><input type="number" id="i-price" value="0"></div></div><label>Cantidad (Stock)</label><input type="number" id="i-stock" value="0"><label>Imagen</label><input type="file" id="i-img" accept="image/*"><div class="row"><button class="btn btn-outline" onclick="clearInvForm()">Cancelar</button><button class="btn btn-primary" id="btn-save-inv" onclick="saveInv()">Guardar Nube</button></div></div><div class="card"><div id="inventory-list"></div></div></div>
+    <!-- INVENTARIO -->
+    <div id="sec-inventory" class="app-section">
+      <div class="card">
+        <h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3>
+        <input type="text" id="i-name" placeholder="Nombre del Producto">
+        <div class="row"><div><label>Costo Adquisición</label><input type="number" id="i-cost" value="0"></div><div><label>Precio Venta</label><input type="number" id="i-price" value="0"></div></div>
+        <label>Cantidad (Stock)</label><input type="number" id="i-stock" value="0"><label>Imagen</label><input type="file" id="i-img" accept="image/*">
+        <div class="row"><button class="btn btn-outline" onclick="clearInvForm()">Cancelar</button><button class="btn btn-primary" id="btn-save-inv" onclick="saveInv()">Guardar Nube</button></div>
+      </div>
+      <div class="card"><div id="inventory-list"></div></div>
+    </div>
 
-    <div id="sec-clients" class="app-section"><div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3><input type="text" id="c-name" placeholder="Nombre"><input type="email" id="c-email" placeholder="Correo"><input type="text" id="c-address" placeholder="Teléfono / Dirección"><button class="btn btn-primary" onclick="saveClient()">Guardar Nube</button></div><div class="card"><div id="client-list"></div></div></div>
+    <!-- CLIENTES CON RNC -->
+    <div id="sec-clients" class="app-section">
+      <div class="card">
+        <h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3>
+        <input type="text" id="c-name" placeholder="Nombre / Razón Social">
+        <input type="text" id="c-rnc" placeholder="RNC / Cédula">
+        <input type="email" id="c-email" placeholder="Correo">
+        <input type="text" id="c-address" placeholder="Teléfono / Dirección">
+        <button class="btn btn-primary" onclick="saveClient()">Guardar Nube</button>
+      </div>
+      <div class="card"><div id="client-list"></div></div>
+    </div>
 
     <div id="sec-settings" class="app-section">
       <div class="card">
@@ -142,7 +188,7 @@
       <div class="card">
         <h3 style="margin-bottom:15px; font-size:16px;">Datos del Negocio</h3>
         <input type="text" id="set-biz-name" placeholder="Nombre Legal">
-        <input type="text" id="set-biz-id" placeholder="ID Fiscal (RNC/CIF)">
+        <input type="text" id="set-biz-id" placeholder="RNC del Negocio">
         <input type="text" id="set-biz-address" placeholder="Dirección">
         <button class="btn btn-primary" onclick="saveSettings()">Guardar Configuración</button>
       </div>
@@ -152,14 +198,14 @@
 
 <div id="toast">Notificación</div>
 
-<!-- PLANTILLA PDF (Oculta) -->
+<!-- PLANTILLA PDF (Oculta) - ADAPTADA PARA RNC E ITBIS -->
 <div id="pdf-wrapper"><div id="pdf-container">
   <div id="pdf-header" style="padding: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
     <div><h1 style="font-size: 36px; margin: 0; text-transform:uppercase;" id="pdf-type">DOCUMENTO</h1><p style="margin-top:8px; font-size:14px;" id="pdf-meta"></p></div>
     <div style="text-align:right;"><img id="pdf-logo-img" src="" style="max-height:80px; margin-bottom:10px;"><p style="font-weight:bold; font-size:18px; margin:0;" id="pdf-biz-name"></p><p style="font-size:12px; margin:0;" id="pdf-biz-meta"></p></div>
   </div>
   <div style="padding: 20px 30px 0 30px; display:flex; justify-content:space-between;">
-    <div><p style="font-size:12px; color:#6b7280; margin-bottom:2px; text-transform:uppercase;">A nombre de:</p><p style="font-size:16px; font-weight:bold; margin:0;" id="pdf-cli-name"></p><p style="font-size:12px; margin:0;" id="pdf-cli-meta"></p></div>
+    <div><p style="font-size:12px; color:#6b7280; margin-bottom:2px; text-transform:uppercase;">Facturado a:</p><p style="font-size:16px; font-weight:bold; margin:0;" id="pdf-cli-name"></p><p style="font-size:12px; margin:0;" id="pdf-cli-meta"></p></div>
     <div style="text-align:right;" id="pdf-status-stamp"></div>
   </div>
   <div style="padding: 30px;">
@@ -170,7 +216,7 @@
     <div style="width: 320px; float: right; margin-top:20px;">
       <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;"><span>Subtotal:</span><span id="pdf-sub"></span></div>
       <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;" id="pdf-row-disc"><span>Descuento:</span><span id="pdf-disc"></span></div>
-      <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;" id="pdf-row-tax"><span>Impuestos:</span><span id="pdf-tax"></span></div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;" id="pdf-row-tax"><span>ITBIS:</span><span id="pdf-tax"></span></div>
       <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 20px; font-weight: bold; border-top: 2px solid #111827; margin-top: 8px;" id="pdf-total-row"><span id="pdf-total-label">Total:</span><span id="pdf-total"></span></div>
     </div>
     <div style="clear: both;"></div>
