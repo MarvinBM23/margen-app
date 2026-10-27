@@ -101,13 +101,38 @@ function compressImage(file, callback) { const r = new FileReader(); r.onload = 
 
 function getRef(col) { return db.collection('users').doc(currentUser.uid).collection(col); }
 
-// CRUD
+// SISTEMA DE KARDEX Y MOVIMIENTOS
+async function logMovement(prodId, prodName, change, newStock, description) {
+  if (change === 0) return;
+  await getRef('inventory_movements').add({
+    productId: prodId,
+    productName: prodName,
+    change: change,
+    stockAfter: newStock,
+    description: description,
+    date: new Date().toISOString()
+  });
+}
+
+// INVENTARIO
 function saveInv() { 
   const n = document.getElementById('i-name').value, c = parseFloat(document.getElementById('i-cost').value)||0, p = parseFloat(document.getElementById('i-price').value)||0, s = parseInt(document.getElementById('i-stock').value)||0, f = document.getElementById('i-img').files[0]; 
   if(!n) return; 
   const cb = async (imgData) => { 
     const data = { name:n, cost:c, price:p, stock:s, img: imgData };
-    if(editInvId) { await getRef('inventory').doc(editInvId).update(data); } else { await getRef('inventory').add(data); } 
+    let change = s;
+    let desc = "Inventario inicial";
+    
+    if(editInvId) { 
+      const oldProd = inventory.find(i => i.id === editInvId);
+      change = s - (oldProd ? oldProd.stock : 0);
+      desc = "Ajuste manual de inventario";
+      await getRef('inventory').doc(editInvId).update(data); 
+      logMovement(editInvId, n, change, s, desc);
+    } else { 
+      const newDoc = await getRef('inventory').add(data); 
+      logMovement(newDoc.id, n, change, s, desc);
+    } 
     clearInvForm(); showToast("Guardado en Nube"); 
   }; 
   if(f) compressImage(f, cb); else cb(editInvId ? inventory.find(i=>i.id===editInvId).img : null); 
@@ -133,12 +158,12 @@ function toggleReceivableStatus(id, stat) { getRef('receivables').doc(id).update
 function delReceivable(id) { getRef('receivables').doc(id).delete(); }
 function renderReceivables() { document.getElementById('receivables-list').innerHTML = receivables.map(r => `<div class="item-row"><div><strong>${r.concept}</strong><br><small>${r.date ? 'Vence: '+r.date : 'Sin fecha'} | ${fMoney(r.amount)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="font-size:11px;padding:2px;" onchange="toggleReceivableStatus('${r.id}', this.value)"><option value="Pendiente" ${r.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${r.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delReceivable('${r.id}')">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cuentas.</p>'; }
 
-// GENERADOR DE DOCUMENTOS Y TRANSACCIONES
+// GENERADOR DE DOCUMENTOS
 function openDocBuilder(type) { clearDoc(); document.getElementById('doc-type').value = type; toggleDocUI(); document.getElementById('doc-title-label').innerText = `Nueva ${type}`; navTo('sec-doc-builder'); }
 function toggleDocUI() { const type = document.getElementById('doc-type').value; document.getElementById('div-factura-options').style.display = type === 'Factura' ? 'flex' : 'none'; document.getElementById('btn-facturar-cot').style.display = type === 'Cotización' ? 'block' : 'none'; document.getElementById('btn-save-doc').innerText = type === 'Cotización' ? 'Guardar Cotización' : 'Guardar Factura'; }
 function startFromProd(type, prodId) { openDocBuilder(type); const p = inventory.find(x => x.id === prodId); if(p) { currentItems = [{id: p.id, name: p.name, cost: p.cost, price: p.price, qty: 1}]; renderDocItems(); calcDoc(); } }
 function fillClientData() { const name = document.getElementById('doc-client-name').value; const c = clients.find(x => x.name === name); if(c) { document.getElementById('doc-client-email').value = c.email; document.getElementById('doc-client-phone').value = c.address; document.getElementById('doc-client-rnc').value = c.rnc || ''; } }
-function addDocItem() { const id = document.getElementById('doc-product-select').value, qty = parseFloat(document.getElementById('doc-qty').value); if(!id||isNaN(qty)) return; const prod = inventory.find(i => i.id === id); currentItems.push({id: prod.id, name: prod.name, cost: prod.cost, price: prod.price, qty}); document.getElementById('doc-qty').value='1'; renderDocItems(); calcDoc(); }
+function addDocItem() { const id = document.getElementById('doc-product-select').value, qty = parseFloat(document.getElementById('doc-qty').value); if(!id||isNaN(qty) || qty<=0) return; const prod = inventory.find(i => i.id === id); currentItems.push({id: prod.id, name: prod.name, cost: prod.cost, price: prod.price, qty}); document.getElementById('doc-qty').value='1'; renderDocItems(); calcDoc(); }
 function delDocItem(idx) { currentItems.splice(idx,1); renderDocItems(); calcDoc(); }
 function renderDocItems() { document.getElementById('doc-items-list').innerHTML = currentItems.map((item, idx) => `<div class="item-row"><span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><div>${fMoney(item.price * item.qty)} <button style="background:none;border:none;color:var(--danger);margin-left:10px;" onclick="delDocItem(${idx})">✖</button></div></div>`).join(''); }
 
@@ -157,7 +182,6 @@ function calcDoc() {
 
 async function convertAndSave() { document.getElementById('doc-type').value = 'Factura'; toggleDocUI(); saveDoc(true); }
 
-// GENERADOR SEGURO DE NUMERACIÓN (Firestore Transactions)
 async function getSequentialNumber(type) {
   const counterRef = db.collection('users').doc(currentUser.uid).collection('config').doc('counters');
   return await db.runTransaction(async (transaction) => {
@@ -171,21 +195,65 @@ async function getSequentialNumber(type) {
   });
 }
 
+// LOGICA CENTRAL DE GUARDADO E INVENTARIO
 async function saveDoc(isConverting = false) {
   const name = document.getElementById('doc-client-name').value, type = document.getElementById('doc-type').value; 
-  if(!name || currentItems.length === 0) { showToast("Faltan datos"); return; }
+  if(!name || currentItems.length === 0) { showToast("Faltan datos en el documento"); return; }
   
-  showToast("Asegurando correlativo en el servidor...");
   const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; 
   let docNum = oldDoc ? oldDoc.num : '';
   
-  // Solo genera un número transaccional si es un documento nuevo o una conversión a factura
-  if (!oldDoc || (oldDoc.type === 'Cotización' && type === 'Factura')) {
-    docNum = await getSequentialNumber(type);
+  // VALIDACIÓN DE STOCK (Evita guardado si hay inventario negativo)
+  let stockUpdates = [];
+  if (type === 'Factura') {
+    for (const item of currentItems) {
+      const prod = inventory.find(x => x.id === item.id);
+      if (!prod) continue;
+      
+      let oldQty = 0;
+      // Si estamos editando una factura (no convirtiendo de cotización)
+      if (oldDoc && oldDoc.type === 'Factura' && !isConverting) {
+        const oldItem = oldDoc.items.find(x => x.id === item.id);
+        if (oldItem) oldQty = oldItem.qty;
+      }
+      
+      const qtyDifference = item.qty - oldQty; // Cuánto MÁS estamos facturando ahora
+      
+      // Bloqueador de Inventario Negativo
+      if (qtyDifference > 0 && prod.stock < qtyDifference) {
+        showToast(`Stock insuficiente para: ${item.name}. Disponibles: ${prod.stock}`);
+        return; // DETIENE EL GUARDADO COMPLETAMENTE
+      }
+      
+      if (qtyDifference !== 0) {
+        stockUpdates.push({ id: prod.id, name: prod.name, change: -qtyDifference, newStock: prod.stock - qtyDifference, desc: oldDoc && !isConverting ? `Edición Fac. ${docNum || 'Pendiente'}` : `Venta Fac. ${docNum || 'Pendiente'}` });
+      }
+    }
+    
+    // Restaurar productos que fueron eliminados de la lista al editar una factura
+    if (oldDoc && oldDoc.type === 'Factura' && !isConverting) {
+      for (const oldItem of oldDoc.items) {
+        if (!currentItems.find(x => x.id === oldItem.id)) {
+          const prod = inventory.find(x => x.id === oldItem.id);
+          if (prod) { stockUpdates.push({ id: prod.id, name: prod.name, change: oldItem.qty, newStock: prod.stock + oldItem.qty, desc: `Restaurado de Fac. ${docNum}` }); }
+        }
+      }
+    }
   }
 
-  let deduct = false; if (type === 'Factura') { if (!oldDoc || oldDoc.type === 'Cotización' || isConverting) deduct = true; }
-  if (deduct) { currentItems.forEach(item => { const i = inventory.find(x => x.id === item.id); if(i) getRef('inventory').doc(i.id).update({stock: Math.max(0, i.stock - item.qty)}); }); }
+  // Genera el número transaccional si pasó las validaciones y es documento nuevo
+  if (!oldDoc || (oldDoc.type === 'Cotización' && type === 'Factura')) {
+    showToast("Generando correlativo seguro...");
+    docNum = await getSequentialNumber(type);
+    // Actualizamos las descripciones del kardex con el número oficial
+    stockUpdates.forEach(update => { update.desc = update.desc.replace('Pendiente', docNum); });
+  }
+
+  // APLICA LAS ACTUALIZACIONES DE INVENTARIO Y REGISTRA EN EL KARDEX
+  for (const update of stockUpdates) {
+    await getRef('inventory').doc(update.id).update({ stock: update.newStock });
+    await logMovement(update.id, update.name, update.change, update.newStock, update.desc);
+  }
   
   const pm = document.getElementById('doc-payment').value; let finalStatus = 'Activa';
   if (type === 'Factura') { if (pm === 'Crédito') finalStatus = 'Crédito'; else if (pm === 'Efectivo' || pm === 'Transferencia') finalStatus = 'Pagada'; else finalStatus = 'Pendiente'; }
@@ -198,7 +266,7 @@ async function saveDoc(isConverting = false) {
   };
   
   if(editDocId && !isConverting) { await getRef('documents').doc(editDocId).update(doc); } else { await getRef('documents').add(doc); }
-  showToast("Guardado en Nube"); navTo(type === 'Factura' ? 'sec-invoices' : 'sec-quotes');
+  showToast("Guardado Exitosamente"); navTo(type === 'Factura' ? 'sec-invoices' : 'sec-quotes');
 }
 
 function editDoc(id) {
