@@ -6,9 +6,7 @@
   <title>Cifra — ERP Comercial Cloud</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f1115">
-  <!-- Dependencias -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <!-- Firebase V8 (Compatibilidad estable para un solo archivo) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -56,19 +54,13 @@
     #pdf-container { width: 800px; background: white; padding: 40px; color: black; box-sizing: border-box; }
     .pdf-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     .pdf-table th, .pdf-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
-    
-    /* Estilos del teclado PIN */
-    .pin-display { font-size: 32px; letter-spacing: 15px; text-align: center; margin-bottom: 20px; height: 40px; }
-    .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 250px; margin: 0 auto; }
-    .pin-btn { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); font-size: 24px; padding: 15px; border-radius: 50%; cursor: pointer; aspect-ratio: 1; }
-    .pin-btn:active { background: var(--border); }
   </style>
 </head>
 <body>
 
 <div class="container">
   
-  <!-- VISTA DE AUTENTICACIÓN -->
+  <!-- VISTA DE AUTENTICACIÓN SEGURA -->
   <div id="view-auth" class="view" style="justify-content: center;">
     <h1 style="color:var(--accent); font-size: 32px; text-align:center; margin-bottom: 5px;">Cifra Cloud</h1>
     <p style="text-align:center; color:var(--muted); margin-bottom: 30px; font-size:14px;">Gestión Empresarial</p>
@@ -87,10 +79,7 @@
       </div>
       <input type="text" id="reg-phone" placeholder="Teléfono">
       <input type="text" id="reg-loc" placeholder="Ubicación / Negocio">
-      <div class="row">
-        <div><label style="margin-top:0;">F. Nacimiento</label><input type="date" id="reg-dob"></div>
-        <div><label style="margin-top:0;">PIN de Acceso (4 dígitos)</label><input type="password" id="reg-pin" maxlength="4" placeholder="****"></div>
-      </div>
+      <label style="margin-top:0;">F. Nacimiento</label><input type="date" id="reg-dob">
       <hr style="border-color:var(--border); margin:10px 0;">
       <input type="email" id="reg-email" placeholder="Correo electrónico">
       <input type="password" id="reg-pass" placeholder="Contraseña (Min. 6 caracteres)">
@@ -99,33 +88,21 @@
     </div>
   </div>
 
-  <!-- VISTA DE ACCESO RÁPIDO (PIN) -->
-  <div id="view-pin" class="view" style="justify-content: center; align-items: center;">
-    <h2 style="margin-bottom: 10px;">Acceso Rápido</h2>
-    <p style="color:var(--muted); margin-bottom: 20px; font-size:14px;">Ingresa tu PIN de 4 dígitos</p>
-    <div class="pin-display" id="pin-display"></div>
-    <div class="pin-pad">
-      <button class="pin-btn" onclick="addPin(1)">1</button><button class="pin-btn" onclick="addPin(2)">2</button><button class="pin-btn" onclick="addPin(3)">3</button>
-      <button class="pin-btn" onclick="addPin(4)">4</button><button class="pin-btn" onclick="addPin(5)">5</button><button class="pin-btn" onclick="addPin(6)">6</button>
-      <button class="pin-btn" onclick="addPin(7)">7</button><button class="pin-btn" onclick="addPin(8)">8</button><button class="pin-btn" onclick="addPin(9)">9</button>
-      <button class="pin-btn" style="background:transparent; border:none; color:var(--danger); font-size:16px;" onclick="clearPin()">BORRAR</button>
-      <button class="pin-btn" onclick="addPin(0)">0</button>
-      <button class="pin-btn" style="background:transparent; border:none; color:var(--muted); font-size:12px;" onclick="logout()">CERRAR SESIÓN</button>
-    </div>
-  </div>
-
   <!-- VISTA DE CARGA -->
   <div id="view-loading" class="view" style="justify-content: center; align-items: center;">
-    <h2 style="color:var(--accent);">Sincronizando con la nube...</h2>
+    <h2 style="color:var(--accent);">Conectando...</h2>
   </div>
 
-  <!-- APP PRINCIPAL (Idéntica pero conectada a la nube) -->
+  <!-- APP PRINCIPAL -->
   <div id="view-app" class="view">
     <header>
       <button style="background:none; border:none; color:var(--text); font-size:24px;" onclick="toggleSidebar()">☰</button>
       <div style="text-align: center;"><h1 style="font-size: 18px;" id="greeting">Hola</h1></div>
-      <select id="currency" style="width:auto; margin:0; padding:6px; font-size:14px; background:var(--input-bg); border-radius:8px; border:1px solid var(--border); color:var(--text);" onchange="renderDashboard()">
-        <option value="USD">USD $</option><option value="DOP">RD $</option><option value="EUR">EUR €</option>
+      <!-- MONEDA POR DEFECTO: DOP -->
+      <select id="currency" style="width:auto; margin:0; padding:6px; font-size:14px; background:var(--input-bg); border-radius:8px; border:1px solid var(--border); color:var(--text);" onchange="updateAllViews()">
+        <option value="DOP" selected>RD $</option>
+        <option value="USD">USD $</option>
+        <option value="EUR">EUR €</option>
       </select>
     </header>
 
@@ -176,7 +153,7 @@
         <button class="btn btn-outline" style="padding:8px; margin-bottom:16px;" onclick="addDocItem()">+ Añadir</button>
         <div id="doc-items-list" style="margin-bottom: 20px;"></div>
         <div class="row"><div><label>Impuesto (%)</label><input type="number" id="doc-tax" value="0" min="0" oninput="calcDoc()"></div><div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" oninput="calcDoc()"></div></div>
-        <div id="div-internal-calc"><label>Cálculo Interno</label><div class="row"><div><label>Horas</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div><div><label>Tarifa</label><input type="number" id="doc-rate" value="25" oninput="calcDoc()"></div></div></div>
+        <div id="div-internal-calc"><label>Servicios / Mano de Obra (Adicional)</label><div class="row"><div><label>Horas</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div><div><label>Tarifa</label><input type="number" id="doc-rate" value="25" oninput="calcDoc()"></div></div></div>
         <div class="card" style="background:var(--nav-bg); margin-top:15px; padding:12px;">
           <div class="row"><span style="color:var(--muted)">Subtotal:</span><span id="s-sub" style="text-align:right;">0.00</span></div>
           <div class="row" style="border-top:1px solid var(--border); padding-top:8px; margin-top:8px; font-weight:bold; font-size:18px; color:var(--accent);"><span id="s-total-label">Total:</span><span id="s-final" style="text-align:right;">0.00</span></div>
@@ -185,11 +162,12 @@
       <div id="doc-action-btns" style="display:flex; gap:10px;"><button class="btn btn-primary" style="flex:1;" id="btn-save-doc" onclick="saveDoc()">Guardar</button><button class="btn" style="flex:1; background:var(--accent); color:#fff; display:none;" id="btn-facturar-cot" onclick="convertAndSave()">Facturar Directo</button></div>
     </div>
 
-    <!-- LISTAS -->
+    <!-- LISTAS HISTÓRICAS -->
     <div id="sec-quotes" class="app-section"><button class="btn btn-primary" style="margin-bottom:15px;" onclick="openDocBuilder('Cotización')">+ Cotización</button><div id="quote-list"></div></div>
     <div id="sec-invoices" class="app-section"><button class="btn btn-primary" style="margin-bottom:15px;" onclick="openDocBuilder('Factura')">+ Factura</button><div id="invoice-list"></div></div>
     
-    <div id="sec-accounting" class="app-section"><div class="widget-grid"><div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div><div class="widget"><p>Por Pagar (AP)</p><h3 id="acc-ap" style="color:var(--danger);">$0.00</h3></div><div class="widget"><p>Ganancia Real</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div><div class="widget"><p>Impuestos</p><h3 id="acc-tax">$0.00</h3></div><div class="widget" style="grid-column: span 2;"><p>Valor Inventario</p><h3 id="acc-inv-value">$0.00</h3></div></div></div>
+    <!-- CONTABILIDAD -->
+    <div id="sec-accounting" class="app-section"><div class="widget-grid"><div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div><div class="widget"><p>Por Pagar (AP)</p><h3 id="acc-ap" style="color:var(--danger);">$0.00</h3></div><div class="widget"><p>Ganancia Neta Operativa</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div><div class="widget"><p>Impuestos</p><h3 id="acc-tax">$0.00</h3></div><div class="widget" style="grid-column: span 2;"><p>Valor Inventario Actual</p><h3 id="acc-inv-value">$0.00</h3></div></div></div>
 
     <div id="sec-receivables" class="app-section"><div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Deuda a tu favor</h3><input type="text" id="r-concept" placeholder="Cliente o Concepto"><div class="row"><div><label>Monto</label><input type="number" id="r-amount" value="0"></div><div><label>Vencimiento</label><input type="date" id="r-date"></div></div><button class="btn btn-primary" onclick="saveReceivable()">Guardar</button></div><div class="card"><div id="receivables-list"></div></div></div>
     
@@ -245,7 +223,7 @@
 </div></div>
 
 <script>
-  // 1. CONFIGURACIÓN FIREBASE SAAS
+  // 1. CONFIGURACIÓN FIREBASE
   const firebaseConfig = {
     apiKey: "AIzaSyC6x_ZHvaH62i-tSHn7WnU7kf0hLrXuF6Q",
     authDomain: "cifra-5dc56.firebaseapp.com",
@@ -259,14 +237,12 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  // Variables Globales y Tasas
+  // Estado Global
   let inventory = [], clients = [], documents = [], payables = [], receivables = [], settings = {};
   let currentItems = [], docTotals = {}, editDocId = null, editInvId = null, currentUser = null;
-  let currentPin = '';
-  let exchangeRates = { USD: 1, DOP: 58.5, EUR: 0.92 }; // Por defecto
-  let baseCurrency = "USD"; // Todo en BD se guarda basado en USD
+  let exchangeRates = { USD: 1, DOP: 58.5, EUR: 0.92 };
 
-  // 2. SISTEMA DE TASAS DE CAMBIO
+  // 2. SISTEMA DE TASAS DE CAMBIO (Inmutable)
   async function fetchRates() {
     try {
       const res = await fetch('https://open.er-api.com/v6/latest/USD');
@@ -274,21 +250,19 @@
       exchangeRates.USD = 1;
       exchangeRates.DOP = data.rates.DOP;
       exchangeRates.EUR = data.rates.EUR;
-      document.getElementById('rate-info').innerText = `Tasa actual: 1 USD = ${exchangeRates.DOP.toFixed(2)} DOP`;
-    } catch(e) { document.getElementById('rate-info').innerText = `Usando tasa offline.`; }
+      document.getElementById('rate-info').innerText = `Tasa del día: 1 USD = ${exchangeRates.DOP.toFixed(2)} DOP`;
+      updateAllViews();
+    } catch(e) { document.getElementById('rate-info').innerText = `Tasa offline (Datos guardados).`; }
   }
 
-  // Convertidor de Moneda Visual
-  function fMoney(val, curParam) { 
-    const cur = document.getElementById('currency').value; // Moneda seleccionada
-    const rate = exchangeRates[cur] || 1;
-    const converted = val * rate;
-    
+  // Formateador de moneda inteligente (Maneja moneda seleccionada actual vs moneda histórica de un documento)
+  function fMoney(val, specificCurrency = null) { 
+    const cur = specificCurrency || document.getElementById('currency').value;
     let symbol = '$'; if(cur === 'DOP') symbol = 'RD$'; else if(cur === 'EUR') symbol = '€';
-    return symbol + converted.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); 
+    return symbol + val.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); 
   }
 
-  // 3. AUTENTICACIÓN Y SEGURIDAD PIN
+  // 3. AUTENTICACIÓN (Sin PIN local, usa sesión persistente segura de Firebase)
   window.onload = () => {
     if(localStorage.getItem('marg_theme') === 'light') document.body.classList.add('light-mode');
     fetchRates();
@@ -296,10 +270,10 @@
     auth.onAuthStateChanged(user => {
       if (user) {
         currentUser = user;
-        const savedPin = localStorage.getItem(`pin_${user.uid}`);
-        if(savedPin) { showView('view-pin'); } // Pide PIN si ya hay sesión
-        else { loadCloudData(); } // Entra directo si acaba de registrarse
-      } else { showView('view-auth'); }
+        loadCloudData();
+      } else { 
+        showView('view-auth'); 
+      }
     });
   };
 
@@ -309,14 +283,13 @@
   }
 
   async function register() {
-    const e = document.getElementById('reg-email').value, p = document.getElementById('reg-pass').value, n = document.getElementById('reg-name').value, ph = document.getElementById('reg-phone').value, id = document.getElementById('reg-id').value, dob = document.getElementById('reg-dob').value, loc = document.getElementById('reg-loc').value, pin = document.getElementById('reg-pin').value;
-    if(!e || !p || !n || pin.length !== 4) return showToast("Faltan datos o PIN inválido");
+    const e = document.getElementById('reg-email').value, p = document.getElementById('reg-pass').value, n = document.getElementById('reg-name').value, ph = document.getElementById('reg-phone').value, id = document.getElementById('reg-id').value, dob = document.getElementById('reg-dob').value, loc = document.getElementById('reg-loc').value;
+    if(!e || !p || !n) return showToast("Faltan datos obligatorios");
     try {
       showView('view-loading');
       const cred = await auth.createUserWithEmailAndPassword(e, p);
       await db.collection('users').doc(cred.user.uid).set({ name: n, phone: ph, documentId: id, dob: dob, location: loc, role: 'admin' });
-      localStorage.setItem(`pin_${cred.user.uid}`, pin); // Guarda el PIN rápido en el celular
-      loadCloudData();
+      // Firebase detecta el Auth automáticamente e inicia sesión
     } catch(err) { showView('view-auth'); showToast(err.message); }
   }
 
@@ -326,38 +299,26 @@
     try { showView('view-loading'); await auth.signInWithEmailAndPassword(e, p); } catch(err) { showView('view-auth'); showToast("Error de acceso"); }
   }
 
-  function addPin(num) {
-    if(currentPin.length < 4) { currentPin += num; document.getElementById('pin-display').innerText = '*'.repeat(currentPin.length); }
-    if(currentPin.length === 4) {
-      if(currentPin === localStorage.getItem(`pin_${currentUser.uid}`)) { loadCloudData(); } 
-      else { showToast("PIN Incorrecto"); clearPin(); }
-    }
-  }
-  function clearPin() { currentPin = ''; document.getElementById('pin-display').innerText = ''; }
-  function logout() { auth.signOut().then(() => { localStorage.removeItem('marg_user'); location.reload(); }); }
+  function logout() { auth.signOut().then(() => { location.reload(); }); }
 
-  // 4. MOTOR NUBE (FIRESTORE SYNC)
+  // 4. SINCRONIZACIÓN FIREBASE
   async function loadCloudData() {
     showView('view-loading');
     const uid = currentUser.uid;
-    
-    // Obtener Perfil
     const profile = await db.collection('users').doc(uid).get();
     if(profile.exists) {
       const pData = profile.data();
-      localStorage.setItem('marg_user', pData.name);
       const h = new Date().getHours(); const saludo = h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
       document.getElementById('greeting').innerText = `${saludo}, ${pData.name} 👋`;
       document.getElementById('user-display').innerText = pData.name;
       document.getElementById('user-loc').innerText = pData.location || '';
     }
 
-    // Escuchar Nube en Tiempo Real (Si modificas en PC, se actualiza en celular al instante)
-    db.collection('users').doc(uid).collection('inventory').onSnapshot(snap => { inventory = snap.docs.map(d => ({id: d.id, ...d.data()})); renderInv(); updateSelects(); renderDashboard(); });
+    db.collection('users').doc(uid).collection('inventory').onSnapshot(snap => { inventory = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); updateSelects(); });
     db.collection('users').doc(uid).collection('clients').onSnapshot(snap => { clients = snap.docs.map(d => ({id: d.id, ...d.data()})); renderClients(); updateSelects(); });
-    db.collection('users').doc(uid).collection('documents').onSnapshot(snap => { documents = snap.docs.map(d => ({id: d.id, ...d.data()})); renderQuotes(); renderInvoices(); renderDashboard(); renderAccounting(); });
-    db.collection('users').doc(uid).collection('payables').onSnapshot(snap => { payables = snap.docs.map(d => ({id: d.id, ...d.data()})); renderPayables(); renderAccounting(); });
-    db.collection('users').doc(uid).collection('receivables').onSnapshot(snap => { receivables = snap.docs.map(d => ({id: d.id, ...d.data()})); renderReceivables(); renderAccounting(); });
+    db.collection('users').doc(uid).collection('documents').onSnapshot(snap => { documents = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
+    db.collection('users').doc(uid).collection('payables').onSnapshot(snap => { payables = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
+    db.collection('users').doc(uid).collection('receivables').onSnapshot(snap => { receivables = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
     
     const setSnap = await db.collection('users').doc(uid).collection('config').doc('settings').get();
     if(setSnap.exists) { settings = setSnap.data(); document.getElementById('set-color').value = settings.color||'#111827'; document.getElementById('set-font').value = settings.font||'Helvetica'; document.getElementById('set-inv-tpl').value = settings.tplInv||'modern'; document.getElementById('set-biz-name').value = settings.name||''; document.getElementById('set-biz-id').value = settings.id||''; document.getElementById('set-biz-address').value = settings.address||''; }
@@ -365,7 +326,7 @@
     showView('view-app');
   }
 
-  // Utilidades UI
+  function updateAllViews() { renderDashboard(); renderAccounting(); renderQuotes(); renderInvoices(); renderInv(); renderPayables(); renderReceivables(); }
   function showView(id) { document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById(id).classList.add('active'); }
   function toggleSidebar() { const s = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay'); const open = s.classList.contains('open'); s.classList.toggle('open', !open); o.style.display = open ? 'none' : 'block'; }
   function navTo(id, btn) { document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active')); document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active')); document.getElementById(id).classList.add('active'); if(btn) btn.classList.add('active'); toggleSidebar(); window.scrollTo(0,0); }
@@ -373,7 +334,7 @@
   function showToast(msg) { const t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3000); }
   function compressImage(file, callback) { const r = new FileReader(); r.onload = e => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); let w = img.width, h = img.height; const max = 250; if(w > h) { if(w > max) { h *= max/w; w = max; } } else { if(h > max) { w *= max/h; h = max; } } canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h); callback(canvas.toDataURL('image/jpeg', 0.7)); }; img.src = e.target.result; }; r.readAsDataURL(file); }
 
-  // 5. CRUD NUBE (GUARDAR DATOS EN FIREBASE)
+  // 5. CRUD NUBE
   function getRef(col) { return db.collection('users').doc(currentUser.uid).collection(col); }
 
   function saveInv() { 
@@ -406,24 +367,32 @@
   function delReceivable(id) { getRef('receivables').doc(id).delete(); }
   function renderReceivables() { document.getElementById('receivables-list').innerHTML = receivables.map(r => `<div class="item-row"><div><strong>${r.concept}</strong><br><small>${r.date ? 'Vence: '+r.date : 'Sin fecha'} | ${fMoney(r.amount)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="font-size:11px;padding:2px;" onchange="toggleReceivableStatus('${r.id}', this.value)"><option value="Pendiente" ${r.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${r.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delReceivable('${r.id}')">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cuentas.</p>'; }
 
-  // DOC BUILDER LOGIC
+  // 6. GENERADOR DE DOCUMENTOS (Congela la tasa de cambio)
   function openDocBuilder(type) { clearDoc(); document.getElementById('doc-type').value = type; toggleDocUI(); document.getElementById('doc-title-label').innerText = `Nueva ${type}`; navTo('sec-doc-builder'); }
-  function toggleDocUI() { const type = document.getElementById('doc-type').value; document.getElementById('div-factura-options').style.display = type === 'Factura' ? 'flex' : 'none'; document.getElementById('div-internal-calc').style.display = type === 'Cotización' ? 'block' : 'none'; document.getElementById('btn-facturar-cot').style.display = type === 'Cotización' ? 'block' : 'none'; document.getElementById('btn-save-doc').innerText = type === 'Cotización' ? 'Guardar Cotización' : 'Guardar Factura'; }
+  function toggleDocUI() { const type = document.getElementById('doc-type').value; document.getElementById('div-factura-options').style.display = type === 'Factura' ? 'flex' : 'none'; document.getElementById('btn-facturar-cot').style.display = type === 'Cotización' ? 'block' : 'none'; document.getElementById('btn-save-doc').innerText = type === 'Cotización' ? 'Guardar Cotización' : 'Guardar Factura'; }
   function startFromProd(type, prodId) { openDocBuilder(type); const p = inventory.find(x => x.id === prodId); if(p) { currentItems = [{id: p.id, name: p.name, cost: p.cost, price: p.price, qty: 1}]; renderDocItems(); calcDoc(); } }
   function fillClientData() { const name = document.getElementById('doc-client-name').value; const c = clients.find(x => x.name === name); if(c) { document.getElementById('doc-client-email').value = c.email; document.getElementById('doc-client-phone').value = c.address; } }
   function addDocItem() { const id = document.getElementById('doc-product-select').value, qty = parseFloat(document.getElementById('doc-qty').value); if(!id||isNaN(qty)) return; const prod = inventory.find(i => i.id === id); currentItems.push({id: prod.id, name: prod.name, cost: prod.cost, price: prod.price, qty}); document.getElementById('doc-qty').value='1'; renderDocItems(); calcDoc(); }
   function delDocItem(idx) { currentItems.splice(idx,1); renderDocItems(); calcDoc(); }
   function renderDocItems() { document.getElementById('doc-items-list').innerHTML = currentItems.map((item, idx) => `<div class="item-row"><span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><div>${fMoney(item.price * item.qty)} <button style="background:none;border:none;color:var(--danger);margin-left:10px;" onclick="delDocItem(${idx})">✖</button></div></div>`).join(''); }
   
+  // CÁLCULO DE UTILIDAD CORREGIDO (La mano de obra es ingreso, no se resta de la ganancia)
   function calcDoc() {
-    const type = document.getElementById('doc-type').value;
+    const cur = document.getElementById('currency').value;
     const subtotal = currentItems.reduce((s, i) => s + (i.price * i.qty), 0), totalCost = currentItems.reduce((s, i) => s + (i.cost * i.qty), 0);
     const taxPct = parseFloat(document.getElementById('doc-tax').value)||0, discPct = parseFloat(document.getElementById('doc-disc').value)||0;
+    
     let total = subtotal, labor = 0;
-    if (type === 'Cotización') { labor = (parseFloat(document.getElementById('doc-hours').value)||0) * (parseFloat(document.getElementById('doc-rate').value)||0); total += labor; }
+    labor = (parseFloat(document.getElementById('doc-hours').value)||0) * (parseFloat(document.getElementById('doc-rate').value)||0); 
+    total += labor; // Se cobra al cliente como servicio
+    
     const discAmt = total * (discPct/100); total -= discAmt; const taxAmt = total * (taxPct/100); total += taxAmt;
-    docTotals = { subtotal, discAmt, taxAmt, total, taxPct, discPct, labor, profit: total - taxAmt - totalCost - labor, totalCost }; 
-    document.getElementById('s-sub').innerText = fMoney(subtotal); document.getElementById('s-total-label').innerText = type === 'Factura' ? 'Total:' : 'Sugerido:'; document.getElementById('s-final').innerText = fMoney(total);
+    
+    // Nueva fórmula de ganancia real operativa
+    const profit = total - taxAmt - totalCost; 
+    
+    docTotals = { subtotal, discAmt, taxAmt, total, taxPct, discPct, labor, profit, totalCost, currency: cur, exchangeRate: exchangeRates[cur] || 1 }; 
+    document.getElementById('s-sub').innerText = fMoney(subtotal); document.getElementById('s-total-label').innerText = document.getElementById('doc-type').value === 'Factura' ? 'Total:' : 'Sugerido:'; document.getElementById('s-final').innerText = fMoney(total);
   }
 
   async function convertAndSave() { document.getElementById('doc-type').value = 'Factura'; toggleDocUI(); saveDoc(true); }
@@ -437,18 +406,14 @@
     const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; if(oldDoc && oldDoc.type === type) docNum = oldDoc.num; 
     
     let deduct = false; if (type === 'Factura') { if (!oldDoc || oldDoc.type === 'Cotización' || isConverting) deduct = true; }
-    if (deduct) { 
-      currentItems.forEach(item => { 
-        const i = inventory.find(x => x.id === item.id); 
-        if(i) getRef('inventory').doc(i.id).update({stock: Math.max(0, i.stock - item.qty)}); 
-      }); 
-    }
+    if (deduct) { currentItems.forEach(item => { const i = inventory.find(x => x.id === item.id); if(i) getRef('inventory').doc(i.id).update({stock: Math.max(0, i.stock - item.qty)}); }); }
     
     const pm = document.getElementById('doc-payment').value;
     let finalStatus = 'Activa';
     if (type === 'Factura') { if (pm === 'Crédito') finalStatus = 'Crédito'; else if (pm === 'Efectivo' || pm === 'Transferencia') finalStatus = 'Pagada'; else finalStatus = 'Pendiente'; }
     if (oldDoc && oldDoc.type === 'Factura' && !isConverting) finalStatus = oldDoc.status;
 
+    // Guarda el documento con la tasa de cambio y moneda original congeladas
     const doc = { num: docNum, type, date: new Date().toLocaleDateString(), dueDate: document.getElementById('doc-due-date').value, paymentMethod: pm, client: { name, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value }, items: [...currentItems], totals: docTotals, status: finalStatus };
     
     if(editDocId) { await getRef('documents').doc(editDocId).update(doc); } else { await getRef('documents').add(doc); }
@@ -466,41 +431,66 @@
   function changeStatus(id, newStatus) { getRef('documents').doc(id).update({status: newStatus}); }
   function delDoc(id) { getRef('documents').doc(id).delete(); }
 
+  // Renderizado Histórico (Muestra la moneda con la que se hizo la factura originalmente)
   function renderDocList(type, containerId) {
     document.getElementById(containerId).innerHTML = documents.filter(d => d.type === type).map(d => `
       <div class="card" style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between; margin-bottom:5px;"><div><span class="badge ${d.type.toLowerCase()}">${d.num}</span> 
       ${d.type==='Factura' ? `<select style="width:auto; padding:2px; font-size:11px; margin-left:5px;" onchange="changeStatus('${d.id}', this.value)"><option value="Sin Pagar" ${d.status==='Sin Pagar'?'selected':''}>Sin Pagar</option><option value="Crédito" ${d.status==='Crédito'?'selected':''}>Crédito</option><option value="Pendiente" ${d.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagada" ${d.status==='Pagada'?'selected':''}>Pagada</option></select>` : ''}</div>
-      <strong style="color:var(--accent);">${fMoney(d.totals.total)}</strong></div><strong>${d.client.name}</strong> <small style="color:var(--muted)">| ${d.date}</small>
+      <strong style="color:var(--accent);">${fMoney(d.totals.total, d.totals.currency || 'USD')}</strong></div><strong>${d.client.name}</strong> <small style="color:var(--muted)">| ${d.date}</small>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;"><button class="btn btn-outline btn-small" onclick="genPDF('${d.id}')">📄 PDF</button><button class="btn btn-outline btn-small" onclick="editDoc('${d.id}')">✏️ Editar</button><button class="btn btn-small" style="background:transparent;border:1px solid var(--danger);color:var(--danger);" onclick="delDoc('${d.id}')">Borrar</button></div></div>`).join('') || '<p style="color:var(--muted); text-align:center;">No hay documentos.</p>';
   }
   function renderQuotes() { renderDocList('Cotización', 'quote-list'); } function renderInvoices() { renderDocList('Factura', 'invoice-list'); }
 
-  // DASHBOARD & CONTABILIDAD (Convirtiendo monedas al vuelo)
+  // 7. DASHBOARD & CONTABILIDAD INTELIGENTE (Agrupa importes históricos a la moneda que tengas seleccionada actualmente)
   function renderDashboard() {
+    const targetCurrency = document.getElementById('currency').value;
+    const targetRate = exchangeRates[targetCurrency] || 1;
     let fTot = 0, arTot = 0;
-    documents.forEach(d => { if(d.type === 'Factura' && d.status === 'Pagada') fTot += d.totals.total; });
-    documents.filter(d => d.type === 'Factura' && (d.status === 'Crédito' || d.status === 'Sin Pagar' || d.status === 'Pendiente')).forEach(d => arTot += d.totals.total);
+    
+    documents.forEach(d => { 
+      const docRate = d.totals.exchangeRate || 1;
+      const normalizedUSD = d.totals.total / docRate; // Convierte la factura vieja a su valor real USD
+      const valueInCurrentSelected = normalizedUSD * targetRate; // Convierte de USD a la moneda que quieres ver ahora
+
+      if(d.type === 'Factura' && d.status === 'Pagada') fTot += valueInCurrentSelected; 
+      if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) arTot += valueInCurrentSelected;
+    });
+    
     receivables.filter(r => r.status === 'Pendiente').forEach(r => arTot += r.amount); 
     
     document.getElementById('dash-inv-total').innerText = fMoney(fTot); document.getElementById('dash-quo-total').innerText = fMoney(arTot);
     document.getElementById('dash-inv-cards').innerHTML = inventory.map(i => `<div class="prod-card">${i.img ? `<img src="${i.img}">` : `<div style="width:100%;height:80px;background:var(--bg);border-radius:8px;margin-bottom:8px;"></div>`}<h4>${i.name}</h4><p>${fMoney(i.price)}<br>Stock: ${i.stock}</p><div class="btn-group"><button class="btn btn-outline" onclick="startFromProd('Cotización', '${i.id}')">Cotizar</button><button class="btn btn-primary" onclick="startFromProd('Factura', '${i.id}')">Facturar</button></div></div>`).join('') || '<p style="font-size:12px; color:var(--muted);">Vacío.</p>';
   }
+
   function renderAccounting() {
+    const targetCurrency = document.getElementById('currency').value;
+    const targetRate = exchangeRates[targetCurrency] || 1;
     let prof = 0, taxes = 0, invNet = 0, ar = 0, ap = 0;
-    documents.filter(d => d.type === 'Factura' && d.status === 'Pagada').forEach(d => { prof += (d.totals.profit || 0); taxes += d.totals.taxAmt; });
-    documents.filter(d => d.type === 'Factura' && (d.status === 'Crédito' || d.status === 'Sin Pagar' || d.status === 'Pendiente')).forEach(d => ar += d.totals.total);
+    
+    documents.forEach(d => {
+      const docRate = d.totals.exchangeRate || 1;
+      const localProfit = ((d.totals.profit || 0) / docRate) * targetRate;
+      const localTax = (d.totals.taxAmt / docRate) * targetRate;
+      const localTotal = (d.totals.total / docRate) * targetRate;
+
+      if(d.type === 'Factura' && d.status === 'Pagada') { prof += localProfit; taxes += localTax; }
+      if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) ar += localTotal;
+    });
+
     receivables.filter(r => r.status === 'Pendiente').forEach(r => ar += r.amount); 
     payables.filter(p => p.status === 'Pendiente').forEach(p => ap += p.amount);
     inventory.forEach(i => invNet += (i.cost * i.stock));
+    
     document.getElementById('acc-profit').innerText = fMoney(prof); document.getElementById('acc-tax').innerText = fMoney(taxes); document.getElementById('acc-inv-value').innerText = fMoney(invNet); document.getElementById('acc-ar').innerText = fMoney(ar); document.getElementById('acc-ap').innerText = fMoney(ap);
   }
 
-  // SETTINGS
+  // CONFIGURACIÓN Y PDF
   function handleLogoUpload(e) { const r = new FileReader(); r.onload = evt => { settings.logo = evt.target.result; saveSettings(true); }; r.readAsDataURL(e.target.files[0]); }
   async function saveSettings(silent=false) { settings.color = document.getElementById('set-color').value; settings.font = document.getElementById('set-font').value; settings.tplInv = document.getElementById('set-inv-tpl').value; settings.name = document.getElementById('set-biz-name').value; settings.id = document.getElementById('set-biz-id').value; settings.address = document.getElementById('set-biz-address').value; await db.collection('users').doc(currentUser.uid).collection('config').doc('settings').set(settings); if(!silent) showToast("Configuración Nube Guardada"); }
 
   function genPDF(id) {
     const d = documents.find(x => x.id === id); if(!d) return; showToast("Generando..."); 
+    const cur = d.totals.currency || 'USD'; // Imprime en su moneda original de forma inmutable
     const w = document.getElementById('pdf-wrapper'), c = document.getElementById('pdf-container'), h = document.getElementById('pdf-header'); c.style.fontFamily = settings.font;
     if(settings.tplInv === 'modern') { h.style.background = settings.color; h.style.color = '#fff'; h.style.borderBottom = 'none'; document.getElementById('pdf-type').style.color = '#fff'; document.getElementById('pdf-total-row').style.color = settings.color; } else { h.style.background = 'transparent'; h.style.color = '#000'; h.style.borderBottom = `4px solid ${settings.color}`; document.getElementById('pdf-type').style.color = settings.color; document.getElementById('pdf-total-row').style.color = settings.color; }
     document.getElementById('pdf-logo-img').src = settings.logo || ''; document.getElementById('pdf-logo-img').style.display = settings.logo ? 'block' : 'none';
@@ -508,8 +498,12 @@
     document.getElementById('pdf-type').innerText = d.type; document.getElementById('pdf-meta').innerHTML = `<strong>Nº:</strong> ${d.num}<br><strong>Fecha:</strong> ${d.date}${d.dueDate?'<br><strong>Vence:</strong> '+d.dueDate:''}${d.paymentMethod ? '<br><strong>Pago:</strong> '+d.paymentMethod : ''}`;
     document.getElementById('pdf-cli-name').innerText = d.client.name; document.getElementById('pdf-cli-meta').innerHTML = `${d.client.email}<br>${d.client.phone}`;
     const st = document.getElementById('pdf-status-stamp'); if(d.type==='Factura' && d.status==='Pagada') st.innerHTML = '<h2 style="color:#22c55e;border:4px solid #22c55e;padding:10px;transform:rotate(-15deg);display:inline-block;">PAGADA</h2>'; else st.innerHTML = '';
-    document.getElementById('pdf-table-body').innerHTML = d.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${fMoney(i.price)}</td><td style="text-align:right;">${fMoney(i.price * i.qty)}</td></tr>`).join('');
-    document.getElementById('pdf-sub').innerText = fMoney(d.totals.subtotal); document.getElementById('pdf-disc').innerText = `-${fMoney(d.totals.discAmt)}`; document.getElementById('pdf-row-disc').style.display = d.totals.discAmt>0?'flex':'none'; document.getElementById('pdf-tax').innerText = `+${fMoney(d.totals.taxAmt)}`; document.getElementById('pdf-row-tax').style.display = d.totals.taxAmt>0?'flex':'none'; document.getElementById('pdf-total').innerText = fMoney(d.totals.total); document.getElementById('pdf-total-label').innerText = d.type==='Factura'?'Total:':'Sugerido:';
+    
+    let table = d.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${fMoney(i.price, cur)}</td><td style="text-align:right;">${fMoney(i.price * i.qty, cur)}</td></tr>`).join('');
+    if(d.totals.labor > 0) table += `<tr><td>Servicios / Mano de Obra</td><td style="text-align:center;">-</td><td style="text-align:right;">-</td><td style="text-align:right;">${fMoney(d.totals.labor, cur)}</td></tr>`;
+    document.getElementById('pdf-table-body').innerHTML = table;
+    
+    document.getElementById('pdf-sub').innerText = fMoney(d.totals.subtotal, cur); document.getElementById('pdf-disc').innerText = `-${fMoney(d.totals.discAmt, cur)}`; document.getElementById('pdf-row-disc').style.display = d.totals.discAmt>0?'flex':'none'; document.getElementById('pdf-tax').innerText = `+${fMoney(d.totals.taxAmt, cur)}`; document.getElementById('pdf-row-tax').style.display = d.totals.taxAmt>0?'flex':'none'; document.getElementById('pdf-total').innerText = fMoney(d.totals.total, cur); document.getElementById('pdf-total-label').innerText = d.type==='Factura'?'Total:':'Sugerido:';
     w.style.display = 'block'; html2pdf().set({ margin:0, filename:`${d.num}.pdf`, image:{type:'jpeg',quality:1}, html2canvas:{scale:2}, jsPDF:{unit:'in',format:'letter',orientation:'portrait'} }).from(c).save().then(() => { w.style.display = 'none'; showToast("¡Descargado!"); });
   }
 </script>
