@@ -14,18 +14,15 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 let inventory = [], clients = [], documents = [], payables = [], receivables = [], settings = {};
-let currentItems = [], docTotals = {}, editDocId = null, editInvId = null, currentUser = null, currentBusinessId = null;
+let currentItems = [], docTotals = {}, editDocId = null, editInvId = null, currentUser = null, currentBusinessId = null, currentUserRole = 'Cajero';
 let exchangeRates = { USD: 1, DOP: 58.5, EUR: 0.92 };
 
 async function fetchRates() {
   try {
     const res = await fetch('https://open.er-api.com/v6/latest/USD');
     const data = await res.json();
-    exchangeRates.USD = 1;
-    exchangeRates.DOP = data.rates.DOP;
-    exchangeRates.EUR = data.rates.EUR;
-    document.getElementById('rate-info').innerText = `Tasa del día: 1 USD = ${exchangeRates.DOP.toFixed(2)} DOP`;
-    updateAllViews();
+    exchangeRates.USD = 1; exchangeRates.DOP = data.rates.DOP; exchangeRates.EUR = data.rates.EUR;
+    document.getElementById('rate-info').innerText = `Tasa del día: 1 USD = ${exchangeRates.DOP.toFixed(2)} DOP`; updateAllViews();
   } catch(e) { document.getElementById('rate-info').innerText = `Tasa offline (Datos guardados).`; }
 }
 
@@ -38,10 +35,7 @@ function fMoney(val, specificCurrency = null) {
 window.onload = () => {
   if(localStorage.getItem('marg_theme') === 'light') document.body.classList.add('light-mode');
   fetchRates();
-  auth.onAuthStateChanged(user => {
-    if (user) { currentUser = user; loadCloudData(); } 
-    else { showView('view-auth'); }
-  });
+  auth.onAuthStateChanged(user => { if (user) { currentUser = user; loadCloudData(); } else { showView('view-auth'); } });
 };
 
 function toggleAuthForm() {
@@ -49,30 +43,19 @@ function toggleAuthForm() {
   if(l.style.display === 'none') { l.style.display = 'block'; r.style.display = 'none'; } else { l.style.display = 'none'; r.style.display = 'block'; }
 }
 
-// REGISTRO SAAS MULTIEMPRESA
 async function register() {
   const e = document.getElementById('reg-email').value, p = document.getElementById('reg-pass').value, n = document.getElementById('reg-name').value, ph = document.getElementById('reg-phone').value, id = document.getElementById('reg-id').value, dob = document.getElementById('reg-dob').value, loc = document.getElementById('reg-loc').value;
   if(!e || !p || !n || !loc) return showToast("Faltan datos (Incluye Ubicación/Negocio)");
   try {
-    showView('view-loading');
-    const cred = await auth.createUserWithEmailAndPassword(e, p);
-    
-    // 1. Crea la bóveda de la empresa
-    const bizRef = db.collection('businesses').doc();
-    await bizRef.set({ name: loc, ownerId: cred.user.uid, createdAt: Date.now() });
-    
-    // 2. Crea el perfil del usuario apuntando a la empresa
+    showView('view-loading'); const cred = await auth.createUserWithEmailAndPassword(e, p);
+    const bizRef = db.collection('businesses').doc(); await bizRef.set({ name: loc, ownerId: cred.user.uid, createdAt: Date.now() });
     await db.collection('users').doc(cred.user.uid).set({ name: n, phone: ph, documentId: id, dob: dob, businessId: bizRef.id, role: 'Dueño' });
-    
-    // 3. Inicializa los contadores de la empresa
     await bizRef.collection('config').doc('counters').set({ invoiceCount: 0, quoteCount: 0 });
-    
   } catch(err) { showView('view-auth'); showToast(err.message); }
 }
 
 async function login() {
-  const e = document.getElementById('log-email').value, p = document.getElementById('log-pass').value;
-  if(!e || !p) return showToast("Ingresa credenciales");
+  const e = document.getElementById('log-email').value, p = document.getElementById('log-pass').value; if(!e || !p) return showToast("Ingresa credenciales");
   try { showView('view-loading'); await auth.signInWithEmailAndPassword(e, p); } catch(err) { showView('view-auth'); showToast("Error de acceso"); }
 }
 
@@ -80,31 +63,48 @@ function logout() { auth.signOut().then(() => { location.reload(); }); }
 
 async function loadCloudData() {
   showView('view-loading');
-  const uid = currentUser.uid;
-  const profile = await db.collection('users').doc(uid).get();
-  
-  if(!profile.exists) { showToast("Error: Perfil no encontrado"); auth.signOut(); return; }
+  const profile = await db.collection('users').doc(currentUser.uid).get();
+  if(!profile.exists) { showToast("Perfil no encontrado"); auth.signOut(); return; }
   
   const pData = profile.data();
   currentBusinessId = pData.businessId;
 
-  // AUTO-MIGRACIÓN: Si es tu usuario antiguo, le crea una empresa automáticamente
   if(!currentBusinessId) {
-    currentBusinessId = uid;
-    await db.collection('users').doc(uid).update({ businessId: currentBusinessId, role: 'Dueño' });
-    await db.collection('businesses').doc(currentBusinessId).set({ name: pData.location || 'Mi Negocio', ownerId: uid, createdAt: Date.now() });
+    currentBusinessId = currentUser.uid;
+    await db.collection('users').doc(currentUser.uid).update({ businessId: currentBusinessId, role: 'Dueño' });
+    await db.collection('businesses').doc(currentBusinessId).set({ name: pData.location || 'Mi Negocio', ownerId: currentUser.uid, createdAt: Date.now() });
     pData.role = 'Dueño';
   }
 
+  currentUserRole = pData.role;
   const bizSnap = await db.collection('businesses').doc(currentBusinessId).get();
   const bizName = bizSnap.exists ? bizSnap.data().name : 'Empresa';
 
   const h = new Date().getHours(); const saludo = h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
   document.getElementById('greeting').innerText = `${saludo}, ${pData.name} 👋`;
   document.getElementById('user-display').innerText = pData.name;
-  document.getElementById('user-loc').innerText = `${bizName} (${pData.role})`;
+  document.getElementById('user-loc').innerText = `${bizName} (${currentUserRole})`;
 
-  // APUNTA TODAS LAS LECTURAS A LA EMPRESA
+  // SEGURIDAD DE INTERFAZ (RBAC)
+  const isAdmin = ['Dueño', 'Administrador'].includes(currentUserRole);
+  document.getElementById('nav-accounting').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('nav-settings').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('admin-team-panel').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('t-my-code').innerText = currentBusinessId;
+
+  // CARGAR EQUIPO (Solo Admins)
+  if (isAdmin) {
+    db.collection('users').where('businessId', '==', currentBusinessId).onSnapshot(snap => {
+      const team = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      document.getElementById('team-list').innerHTML = team.map(member => `
+        <div class="item-row">
+          <div><strong>${member.name}</strong><br><small>${member.role}</small></div>
+          ${member.id !== currentUser.uid && currentUserRole === 'Dueño' ? `<select style="font-size:11px; padding:2px; margin-left:10px;" onchange="changeRole('${member.id}', this.value)"><option value="Cajero" ${member.role==='Cajero'?'selected':''}>Cajero</option><option value="Administrador" ${member.role==='Administrador'?'selected':''}>Admin</option></select>` : ''}
+        </div>
+      `).join('');
+    });
+  }
+
   db.collection('businesses').doc(currentBusinessId).collection('inventory').onSnapshot(snap => { inventory = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); updateSelects(); });
   db.collection('businesses').doc(currentBusinessId).collection('clients').onSnapshot(snap => { clients = snap.docs.map(d => ({id: d.id, ...d.data()})); renderClients(); updateSelects(); });
   db.collection('businesses').doc(currentBusinessId).collection('documents').onSnapshot(snap => { documents = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); });
@@ -125,7 +125,23 @@ function toggleTheme() { const isLight = document.body.classList.toggle('light-m
 function showToast(msg) { const t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3000); }
 function compressImage(file, callback) { const r = new FileReader(); r.onload = e => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); let w = img.width, h = img.height; const max = 250; if(w > h) { if(w > max) { h *= max/w; w = max; } } else { if(h > max) { w *= max/h; h = max; } } canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h); callback(canvas.toDataURL('image/jpeg', 0.7)); }; img.src = e.target.result; }; r.readAsDataURL(file); }
 
-// RUTA MAESTRA SAAS
+// SAAS TEAM FUNCTIONS
+async function joinBusiness() {
+  const code = document.getElementById('t-join-code').value.trim();
+  if(!code) return;
+  if(!confirm("¿Seguro que deseas unirte a esta empresa? Perderás acceso a tu espacio actual.")) return;
+  try {
+    showView('view-loading');
+    await db.collection('users').doc(currentUser.uid).update({ businessId: code, role: 'Cajero' });
+    location.reload();
+  } catch(e) { showToast("Error al vincular cuenta"); showView('view-app'); }
+}
+
+async function changeRole(userId, newRole) {
+  try { await db.collection('users').doc(userId).update({ role: newRole }); showToast("Rol actualizado"); } 
+  catch(e) { showToast("Error de permisos"); }
+}
+
 function getRef(col) { return db.collection('businesses').doc(currentBusinessId).collection(col); }
 
 async function logMovement(prodId, prodName, change, newStock, description) {
@@ -141,14 +157,9 @@ function saveInv() {
     let change = s; let desc = "Inventario inicial";
     if(editInvId) { 
       const oldProd = inventory.find(i => i.id === editInvId);
-      change = s - (oldProd ? oldProd.stock : 0);
-      desc = "Ajuste manual de inventario";
-      await getRef('inventory').doc(editInvId).update(data); 
-      logMovement(editInvId, n, change, s, desc);
-    } else { 
-      const newDoc = await getRef('inventory').add(data); 
-      logMovement(newDoc.id, n, change, s, desc);
-    } 
+      change = s - (oldProd ? oldProd.stock : 0); desc = "Ajuste manual de inventario";
+      await getRef('inventory').doc(editInvId).update(data); logMovement(editInvId, n, change, s, desc);
+    } else { const newDoc = await getRef('inventory').add(data); logMovement(newDoc.id, n, change, s, desc); } 
     clearInvForm(); showToast("Guardado en Nube"); 
   }; 
   if(f) compressImage(f, cb); else cb(editInvId ? inventory.find(i=>i.id===editInvId).img : null); 
@@ -211,11 +222,8 @@ async function getSequentialNumber(type) {
   const counterRef = db.collection('businesses').doc(currentBusinessId).collection('config').doc('counters');
   return await db.runTransaction(async (transaction) => {
     const counterDoc = await transaction.get(counterRef);
-    const field = type === 'Factura' ? 'invoiceCount' : 'quoteCount';
-    const prefix = type === 'Factura' ? 'FAC-' : 'COT-';
-    let newCount = 1;
-    if (!counterDoc.exists) { transaction.set(counterRef, { [field]: newCount }, { merge: true }); } 
-    else { newCount = (counterDoc.data()[field] || 0) + 1; transaction.update(counterRef, { [field]: newCount }); }
+    const field = type === 'Factura' ? 'invoiceCount' : 'quoteCount'; const prefix = type === 'Factura' ? 'FAC-' : 'COT-'; let newCount = 1;
+    if (!counterDoc.exists) { transaction.set(counterRef, { [field]: newCount }, { merge: true }); } else { newCount = (counterDoc.data()[field] || 0) + 1; transaction.update(counterRef, { [field]: newCount }); }
     return `${prefix}${newCount.toString().padStart(4, '0')}`;
   });
 }
@@ -246,8 +254,7 @@ async function saveDoc(isConverting = false) {
 
   if (!oldDoc || (oldDoc.type === 'Cotización' && type === 'Factura')) {
     showToast("Generando correlativo seguro...");
-    docNum = await getSequentialNumber(type);
-    stockUpdates.forEach(update => { update.desc = update.desc.replace('Pendiente', docNum); });
+    docNum = await getSequentialNumber(type); stockUpdates.forEach(update => { update.desc = update.desc.replace('Pendiente', docNum); });
   }
 
   for (const update of stockUpdates) { await getRef('inventory').doc(update.id).update({ stock: update.newStock }); await logMovement(update.id, update.name, update.change, update.newStock, update.desc); }
@@ -292,20 +299,18 @@ function renderDocList(type, containerId) {
     <div class="card" style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between; margin-bottom:5px;"><div><span class="badge ${d.type.toLowerCase()}">${d.num}</span> 
     ${d.type==='Factura' ? `<select style="width:auto; padding:2px; font-size:11px; margin-left:5px;" onchange="changeStatus('${d.id}', this.value)"><option value="Sin Pagar" ${d.status==='Sin Pagar'?'selected':''}>Sin Pagar</option><option value="Crédito" ${d.status==='Crédito'?'selected':''}>Crédito</option><option value="Pendiente" ${d.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagada" ${d.status==='Pagada'?'selected':''}>Pagada</option></select>` : ''}</div>
     <strong style="color:var(--accent);">${fMoney(d.totals.total, d.totals.currency || 'USD')}</strong></div><strong>${d.client.name}</strong> <small style="color:var(--muted)">| ${d.date}</small>
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;"><button class="btn btn-outline btn-small" onclick="genPDF('${d.id}')">📄 PDF</button><button class="btn btn-outline btn-small" onclick="editDoc('${d.id}')">✏️ Editar</button><button class="btn btn-small" style="background:transparent;border:1px solid var(--danger);color:var(--danger);" onclick="delDoc('${d.id}')">Borrar</button></div></div>`).join('') || '<p style="color:var(--muted); text-align:center;">No hay documentos.</p>';
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;"><button class="btn btn-outline btn-small" onclick="genPDF('${d.id}')">📄 PDF</button><button class="btn btn-outline btn-small" onclick="editDoc('${d.id}')">✏️ Editar</button>${currentUserRole === 'Dueño' ? `<button class="btn btn-small" style="background:transparent;border:1px solid var(--danger);color:var(--danger);" onclick="delDoc('${d.id}')">Borrar</button>` : ''}</div></div>`).join('') || '<p style="color:var(--muted); text-align:center;">No hay documentos.</p>';
 }
 function renderQuotes() { renderDocList('Cotización', 'quote-list'); } function renderInvoices() { renderDocList('Factura', 'invoice-list'); }
 
 function filterByDate(docsArray) {
   const filter = document.getElementById('dash-filter') ? document.getElementById('dash-filter').value : 'month';
-  if (filter === 'all') return docsArray;
-  const now = new Date();
+  if (filter === 'all') return docsArray; const now = new Date();
   return docsArray.filter(d => {
     const dateObj = d.timestamp ? new Date(d.timestamp) : new Date(d.date); if (isNaN(dateObj)) return true; 
     if (filter === 'today') return dateObj.getDate() === now.getDate() && dateObj.getMonth() === now.getMonth() && dateObj.getFullYear() === now.getFullYear();
     if (filter === 'month') return dateObj.getMonth() === now.getMonth() && dateObj.getFullYear() === now.getFullYear();
-    if (filter === 'year') return dateObj.getFullYear() === now.getFullYear();
-    return true;
+    if (filter === 'year') return dateObj.getFullYear() === now.getFullYear(); return true;
   });
 }
 
@@ -314,8 +319,7 @@ function renderDashboard() {
   let fTot = 0, arTot = 0; const filteredDocs = filterByDate(documents); const filteredReceivables = filterByDate(receivables);
   filteredDocs.forEach(d => { 
     const docRate = d.totals.exchangeRate || 1; const normalizedUSD = d.totals.total / docRate; const valueInCurrentSelected = normalizedUSD * targetRate; 
-    if(d.type === 'Factura' && d.status === 'Pagada') fTot += valueInCurrentSelected; 
-    if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) arTot += valueInCurrentSelected;
+    if(d.type === 'Factura' && d.status === 'Pagada') fTot += valueInCurrentSelected; if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) arTot += valueInCurrentSelected;
   });
   filteredReceivables.filter(r => r.status === 'Pendiente').forEach(r => arTot += r.amount); 
   document.getElementById('dash-inv-total').innerText = fMoney(fTot); document.getElementById('dash-quo-total').innerText = fMoney(arTot);
@@ -328,8 +332,7 @@ function renderAccounting() {
   const filteredDocs = filterByDate(documents); const filteredReceivables = filterByDate(receivables); const filteredPayables = filterByDate(payables);
   filteredDocs.forEach(d => {
     const docRate = d.totals.exchangeRate || 1; const localProfit = ((d.totals.profit || 0) / docRate) * targetRate; const localTax = (d.totals.taxAmt / docRate) * targetRate; const localTotal = (d.totals.total / docRate) * targetRate;
-    if(d.type === 'Factura' && d.status === 'Pagada') { prof += localProfit; taxes += localTax; }
-    if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) ar += localTotal;
+    if(d.type === 'Factura' && d.status === 'Pagada') { prof += localProfit; taxes += localTax; } if(d.type === 'Factura' && ['Crédito', 'Sin Pagar', 'Pendiente'].includes(d.status)) ar += localTotal;
   });
   filteredReceivables.filter(r => r.status === 'Pendiente').forEach(r => ar += r.amount); filteredPayables.filter(p => p.status === 'Pendiente').forEach(p => ap += p.amount); inventory.forEach(i => invNet += (i.cost * i.stock));
   document.getElementById('acc-profit').innerText = fMoney(prof); document.getElementById('acc-tax').innerText = fMoney(taxes); document.getElementById('acc-inv-value').innerText = fMoney(invNet); document.getElementById('acc-ar').innerText = fMoney(ar); document.getElementById('acc-ap').innerText = fMoney(ap);
@@ -339,15 +342,13 @@ function handleLogoUpload(e) { const r = new FileReader(); r.onload = evt => { s
 async function saveSettings(silent=false) { settings.color = document.getElementById('set-color').value; settings.font = document.getElementById('set-font').value; settings.tplInv = document.getElementById('set-inv-tpl').value; settings.name = document.getElementById('set-biz-name').value; settings.id = document.getElementById('set-biz-id').value; settings.address = document.getElementById('set-biz-address').value; await db.collection('businesses').doc(currentBusinessId).collection('config').doc('settings').set(settings); if(!silent) showToast("Configuración Nube Guardada"); }
 
 function genPDF(id) {
-  const d = documents.find(x => x.id === id); if(!d) return; showToast("Generando..."); 
-  const cur = d.totals.currency || 'USD'; 
+  const d = documents.find(x => x.id === id); if(!d) return; showToast("Generando..."); const cur = d.totals.currency || 'USD'; 
   const w = document.getElementById('pdf-wrapper'), c = document.getElementById('pdf-container'), h = document.getElementById('pdf-header'); c.style.fontFamily = settings.font;
   if(settings.tplInv === 'modern') { h.style.background = settings.color; h.style.color = '#fff'; h.style.borderBottom = 'none'; document.getElementById('pdf-type').style.color = '#fff'; document.getElementById('pdf-total-row').style.color = settings.color; } else { h.style.background = 'transparent'; h.style.color = '#000'; h.style.borderBottom = `4px solid ${settings.color}`; document.getElementById('pdf-type').style.color = settings.color; document.getElementById('pdf-total-row').style.color = settings.color; }
   document.getElementById('pdf-logo-img').src = settings.logo || ''; document.getElementById('pdf-logo-img').style.display = settings.logo ? 'block' : 'none';
   document.getElementById('pdf-biz-name').innerText = settings.name; document.getElementById('pdf-biz-meta').innerHTML = `${settings.id?'RNC: '+settings.id+'<br>':''}${settings.address}`;
   document.getElementById('pdf-type').innerText = d.type; document.getElementById('pdf-meta').innerHTML = `<strong>Nº:</strong> ${d.num}<br><strong>Fecha:</strong> ${d.date}${d.dueDate?'<br><strong>Vence:</strong> '+d.dueDate:''}${d.paymentMethod ? '<br><strong>Pago:</strong> '+d.paymentMethod : ''}`;
-  document.getElementById('pdf-cli-name').innerText = d.client.name; 
-  document.getElementById('pdf-cli-meta').innerHTML = `${d.client.rnc?'RNC/Cédula: '+d.client.rnc+'<br>':''}${d.client.email}<br>${d.client.phone}`;
+  document.getElementById('pdf-cli-name').innerText = d.client.name; document.getElementById('pdf-cli-meta').innerHTML = `${d.client.rnc?'RNC/Cédula: '+d.client.rnc+'<br>':''}${d.client.email}<br>${d.client.phone}`;
   const st = document.getElementById('pdf-status-stamp'); if(d.type==='Factura' && d.status==='Pagada') st.innerHTML = '<h2 style="color:#22c55e;border:4px solid #22c55e;padding:10px;transform:rotate(-15deg);display:inline-block;">PAGADA</h2>'; else st.innerHTML = '';
   
   let table = d.items.map(i => `<tr><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;">${fMoney(i.price, cur)}</td><td style="text-align:right;">${fMoney(i.price * i.qty, cur)}</td></tr>`).join('');
