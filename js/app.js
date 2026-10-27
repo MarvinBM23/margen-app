@@ -278,7 +278,28 @@ function editDoc(id) {
 }
 function clearDoc() { editDocId = null; document.getElementById('doc-client-name').value=''; document.getElementById('doc-client-rnc').value=''; document.getElementById('doc-client-email').value=''; document.getElementById('doc-client-phone').value=''; currentItems=[]; renderDocItems(); calcDoc(); }
 function changeStatus(id, newStatus) { getRef('documents').doc(id).update({status: newStatus}); }
-function delDoc(id) { getRef('documents').doc(id).delete(); }
+async function delDoc(id) { 
+  if(!confirm("¿Estás seguro de eliminar este documento?")) return;
+  
+  const docToDel = documents.find(x => x.id === id);
+  if(!docToDel) return;
+
+  // Si es una factura, devolvemos los artículos al almacén antes de borrarla
+  if (docToDel.type === 'Factura') {
+    showToast("Restaurando stock...");
+    for (const item of docToDel.items) {
+      const prod = inventory.find(x => x.id === item.id);
+      if (prod) {
+        const newStock = prod.stock + item.qty;
+        await getRef('inventory').doc(prod.id).update({ stock: newStock });
+        await logMovement(prod.id, prod.name, item.qty, newStock, `Eliminación Fac. ${docToDel.num}`);
+      }
+    }
+  }
+
+  await getRef('documents').doc(id).delete(); 
+  showToast("Documento eliminado correctamente");
+}
 
 function renderDocList(type, containerId) {
   document.getElementById(containerId).innerHTML = documents.filter(d => d.type === type).map(d => `
