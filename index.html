@@ -17,6 +17,7 @@
 
 <div class="container">
   
+  <!-- LOGIN / REGISTRO -->
   <div id="view-auth" class="view" style="justify-content: center;">
     <div class="card" style="padding: 28px;">
       <h1 style="color:var(--accent); font-size: 32px; text-align:center; margin-bottom: 5px;">Cifra Cloud</h1>
@@ -53,15 +54,18 @@
     </div>
   </div>
 
+  <!-- CARGANDO -->
   <div id="view-loading" class="view" style="justify-content: center; align-items: center;">
     <h2 style="color:var(--accent);">Sincronizando Cifra Cloud...</h2>
   </div>
 
+  <!-- APLICACIÓN PRINCIPAL -->
   <div id="view-app" class="view">
     <header>
       <button class="menu-toggle-btn" onclick="toggleSidebar()">☰</button>
       <div><h1 style="font-size: 20px;" id="greeting">Hola</h1></div>
       <div style="display:flex; gap:10px; align-items:center;">
+        <button class="btn btn-outline btn-small" onclick="openCuadreModal()">🏧 Cuadre</button>
         <select id="currency" style="width:auto; margin:0; padding:8px 12px; font-size:13px; font-weight:bold;" onchange="updateAllViews()">
           <option value="DOP" selected>RD$ (DOP)</option>
           <option value="USD">US$ (USD)</option>
@@ -80,6 +84,7 @@
       <button class="menu-item active" onclick="navTo('sec-dashboard', this)">🏠 Panel Principal</button>
       <button class="menu-item" onclick="navTo('sec-quotes', this)">📄 Cotizaciones</button>
       <button class="menu-item" onclick="navTo('sec-invoices', this)">🧾 Facturación (NCF)</button>
+      <button class="menu-item" onclick="openCuadreModal()">🏧 Cuadre de Caja (Hoy)</button>
       <button class="menu-item" id="nav-accounting" onclick="navTo('sec-accounting', this)">📊 Contabilidad & 607</button>
       <button class="menu-item" onclick="navTo('sec-receivables', this)">📥 Cuentas por Cobrar</button>
       <button class="menu-item" onclick="navTo('sec-payables', this)">💸 Cuentas por Pagar</button>
@@ -98,7 +103,7 @@
           <h3 style="font-size:16px; margin:0;">Resumen de Operaciones</h3>
           <small style="color:var(--muted); font-size:11px;" id="rate-info">Obteniendo tasa en vivo...</small>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <select id="dash-filter" style="width:auto; margin:0; padding:8px 12px; font-size:13px;" onchange="updateAllViews()">
             <option value="all">Todo el Historial</option>
             <option value="today">Hoy</option>
@@ -235,15 +240,15 @@
           <small style="color:var(--muted);">Datos calculados según el filtro de tiempo activo en el Panel Principal.</small>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-outline btn-small" onclick="openCashRegisterModal()">💵 Cuadre de Caja (Diario)</button>
-          <button class="btn btn-primary btn-small" onclick="exportSalesCSV()">📥 Exportar Ventas Excel / CSV (607)</button>
+          <button class="btn btn-outline btn-small" onclick="openCuadreModal()">🏧 Ver Cuadre de Hoy</button>
+          <button class="btn btn-primary btn-small" onclick="exportSalesCSV()">📥 Exportar Excel / CSV (Formato 607)</button>
         </div>
       </div>
       <div class="widget-grid">
         <div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div>
         <div class="widget"><p>Por Pagar (AP)</p><h3 id="acc-ap" style="color:var(--danger);">$0.00</h3></div>
-        <div class="widget"><p>Ganancia Neta Operativa</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div>
-        <div class="widget"><p>ITBIS Retenido / Facturado</p><h3 id="acc-tax">$0.00</h3></div>
+        <div class="widget"><p>Ganancia Neta Cobrada</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div>
+        <div class="widget"><p>ITBIS Retenido / Cobrado</p><h3 id="acc-tax">$0.00</h3></div>
         <div class="widget" style="grid-column: span 2;"><p>Valor de Inventario en Almacén (Al Costo)</p><h3 id="acc-inv-value">$0.00</h3></div>
       </div>
     </div>
@@ -429,77 +434,73 @@
   </div>
 </div>
 
-<!-- MODAL ABONOS PARCIALES -->
-<div id="modal-payment" class="modal-overlay">
+<!-- MODAL DE ABONOS PARCIALES -->
+<div id="modal-abono" class="modal-overlay">
   <div class="modal-content">
-    <button class="close-modal" onclick="closeModal('modal-payment')">✖</button>
-    <h2 style="margin-bottom:5px; color:var(--accent); font-size:18px;">💵 Registrar Abono / Pago</h2>
-    <p id="mp-subtitle" style="font-size:12px; color:var(--muted); margin-bottom:15px;"></p>
-    <label>Monto a Abonar</label>
-    <input type="number" id="mp-amount" placeholder="0.00">
-    <label>Método de Pago</label>
-    <select id="mp-method"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Tarjeta">Tarjeta</option></select>
-    <button class="btn btn-primary" onclick="submitPayment()">Aplicar Abono</button>
-    <h4 style="font-size:13px; margin:15px 0 8px 0;">Recibos Anteriores:</h4>
-    <div id="mp-history" class="slide-y" style="max-height:150px;"></div>
+    <button class="close-modal" onclick="closeModal('modal-abono')">✖</button>
+    <h2 style="margin-bottom:4px; color:var(--accent); font-size:18px;" id="ab-title">💵 Control de Abonos</h2>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:14px;" id="ab-subtitle"></p>
+    
+    <div class="widget-grid" style="grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:14px;">
+      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Total Factura</p><h3 id="ab-total" style="font-size:14px;">$0</h3></div>
+      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Abonado</p><h3 id="ab-paid" style="color:var(--accent); font-size:14px;">$0</h3></div>
+      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Restante</p><h3 id="ab-balance" style="color:var(--warn); font-size:14px;">$0</h3></div>
+    </div>
+
+    <div id="ab-form-box" style="background:var(--input-bg); border:1px solid var(--border); padding:12px; border-radius:8px; margin-bottom:14px;">
+      <div class="row">
+        <div><label>Monto a Abonar</label><input type="number" id="ab-amount" step="0.01" min="0" style="margin-bottom:10px;"></div>
+        <div><label>Vía de Pago</label><select id="ab-method" style="margin-bottom:10px;"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Tarjeta">Tarjeta</option></select></div>
+      </div>
+      <label>Nota / Referencia (Opcional)</label>
+      <input type="text" id="ab-note" placeholder="Ej. Recibo #04 o Transferencia Banreservas" style="margin-bottom:10px;">
+      <button class="btn btn-primary" onclick="saveAbono()">+ Registrar Abono</button>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h4 style="font-size:13px; margin:0;">Pagos Registrados en esta Factura</h4>
+      <button class="btn btn-pos btn-small" onclick="printPOS(currentAbonoDocId)">🖨️ Ticket 80mm</button>
+    </div>
+    <div id="ab-history-list" class="slide-y" style="max-height:180px;"></div>
   </div>
 </div>
 
-<!-- MODAL CUADRE DE CAJA DIARIO -->
-<div id="modal-cash" class="modal-overlay">
-  <div class="modal-content" style="max-width: 520px;">
-    <button class="close-modal" onclick="closeModal('modal-cash')">✖</button>
-    <h2 style="margin-bottom:5px; color:var(--accent); font-size:18px;">💵 Cuadre de Caja Diario (Arqueo)</h2>
-    <p style="font-size:12px; color:var(--muted); margin-bottom:15px;">Resumen de ingresos recibidos hoy en caja (Ventas al contado + Abonos parciales).</p>
-    
-    <div class="widget-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 15px;">
-      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Efectivo</p><h3 id="cash-efectivo" style="font-size:16px; color:var(--accent);">$0</h3></div>
-      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Transferencia</p><h3 id="cash-trans" style="font-size:16px; color:var(--info);">$0</h3></div>
-      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Tarjeta</p><h3 id="cash-tarjeta" style="font-size:16px; color:var(--warn);">$0</h3></div>
-    </div>
-    
-    <div class="card" style="background:var(--nav-bg); padding:12px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
-      <strong style="font-size:15px;">TOTAL INGRESOS HOY:</strong>
-      <strong id="cash-total" style="font-size:18px; color:var(--accent);">$0.00</strong>
+<!-- MODAL DE CUADRE DE CAJA DIARIO -->
+<div id="modal-cuadre" class="modal-overlay">
+  <div class="modal-content" style="max-width: 580px;">
+    <button class="close-modal" onclick="closeModal('modal-cuadre')">✖</button>
+    <h2 style="margin-bottom:4px; color:var(--accent); font-size:18px;">🏧 Cuadre de Caja Diario (Cierre de Turno)</h2>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:14px;" id="cuadre-date-label">Ingresos cobrados en el día de hoy</p>
+
+    <div class="widget-grid" style="grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:14px;">
+      <div class="widget" style="padding:12px;"><p style="font-size:11px;">💵 Efectivo Cobrado Hoy</p><h3 id="cuadre-cash" style="color:var(--accent); font-size:17px;">$0.00</h3></div>
+      <div class="widget" style="padding:12px;"><p style="font-size:11px;">🏦 Transferencias Hoy</p><h3 id="cuadre-transfer" style="color:var(--info); font-size:17px;">$0.00</h3></div>
+      <div class="widget" style="padding:12px;"><p style="font-size:11px;">💳 Tarjetas Hoy</p><h3 id="cuadre-card" style="font-size:17px;">$0.00</h3></div>
+      <div class="widget" style="padding:12px; border-color:var(--accent);"><p style="font-size:11px;">📈 Total Recaudado Hoy</p><h3 id="cuadre-total" style="color:var(--accent); font-size:17px;">$0.00</h3></div>
     </div>
 
-    <h4 style="font-size:13px; margin-bottom:8px;">Detalle de Transacciones de Hoy:</h4>
-    <div id="cash-details" class="slide-y" style="max-height:220px;"></div>
+    <div style="background:var(--input-bg); border:1px solid var(--border); padding:12px; border-radius:8px; margin-bottom:14px;">
+      <h4 style="font-size:13px; margin-bottom:10px; color:var(--text);">Arqueo Físico de Gaveta (Efectivo)</h4>
+      <div class="row">
+        <div><label>Fondo Inicial de Caja</label><input type="number" id="cuadre-base" value="0" oninput="calcArqueo()" style="margin-bottom:6px;"></div>
+        <div><label>Efectivo Físico Contado</label><input type="number" id="cuadre-counted" value="0" oninput="calcArqueo()" style="margin-bottom:6px;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding-top:6px; border-top:1px solid var(--border); font-size:13px;">
+        <span>Efectivo Esperado: <strong id="cuadre-expected">$0.00</strong></span>
+        <span id="cuadre-diff-label" style="font-weight:bold;">Diferencia: $0.00</span>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h4 style="font-size:13px; margin:0;">Desglose de Cobros de Hoy</h4>
+      <button class="btn btn-pos btn-small" onclick="printCuadrePOS()">🖨️ Imprimir Cierre 80mm</button>
+    </div>
+    <div id="cuadre-tx-list" class="slide-y" style="max-height:180px;"></div>
   </div>
 </div>
 
-<!-- PLANTILLA TICKET TÉRMICO POS 80mm (Oculta) -->
-<div id="pos-wrapper"><div id="pos-container">
-  <div style="text-align:center; margin-bottom:10px;">
-    <strong style="font-size:14px; display:block;" id="pos-biz-name">NEGOCIO</strong>
-    <span id="pos-biz-rnc" style="display:block;">RNC: 000000000</span>
-    <span id="pos-biz-addr" style="display:block; font-size:10px;">Dirección</span>
-  </div>
-  <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0; margin-bottom:8px; font-size:11px;">
-    <span id="pos-doc-type" style="font-weight:bold; display:block;">FACTURA DE CONSUMO</span>
-    <span>Nº: <strong id="pos-doc-num">FAC-0001</strong></span><br>
-    <span id="pos-doc-ncf" style="display:block;">NCF: B0200000001</span>
-    <span>Fecha: <span id="pos-doc-date">00/00/0000</span></span>
-  </div>
-  <div style="margin-bottom:8px; font-size:11px;">
-    <strong>Cliente:</strong> <span id="pos-cli-name">Cliente</span><br>
-    <span id="pos-cli-rnc-wrap"><strong>RNC/Cédula:</strong> <span id="pos-cli-rnc"></span><br></span>
-  </div>
-  <table class="pos-table">
-    <thead><tr><th>Cant/Desc</th><th style="text-align:right;">Importe</th></tr></thead>
-    <tbody id="pos-table-body"></tbody>
-  </table>
-  <div style="border-top:1px dashed #000; padding-top:6px; font-size:11px;">
-    <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="pos-sub">0.00</span></div>
-    <div style="display:flex; justify-content:space-between;" id="pos-row-disc"><span>Descuento:</span><span id="pos-disc">0.00</span></div>
-    <div style="display:flex; justify-content:space-between;" id="pos-row-tax"><span>ITBIS:</span><span id="pos-tax">0.00</span></div>
-    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-top:4px; border-top:1px solid #000; padding-top:4px;"><span>TOTAL:</span><span id="pos-total">0.00</span></div>
-  </div>
-  <div style="text-align:center; margin-top:15px; font-size:10px;">
-    <span>¡Gracias por su compra!</span><br>
-    <span>Software: Cifra Cloud ERP</span>
-  </div>
-</div></div>
+<!-- IFRAME OCULTO PARA IMPRESIÓN TÉRMICA 80MM -->
+<iframe id="pos-print-frame" style="display:none;"></iframe>
 
 <!-- PLANTILLA PDF CARTA (Oculta) -->
 <div id="pdf-wrapper"><div id="pdf-container">
@@ -530,8 +531,10 @@
     <div style="width: 320px; float: right; margin-top:20px;">
       <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;"><span>Subtotal:</span><span id="pdf-sub"></span></div>
       <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;" id="pdf-row-disc"><span>Descuento:</span><span id="pdf-disc"></span></div>
-      <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;" id="pdf-row-tax"><span>ITBIS:</span><span id="pdf-tax"></span></div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-top: 1px solid #e5e7eb;" id="pdf-row-tax"><span>ITBIS:</span><span id="pdf-tax"></span></div>
       <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 20px; font-weight: bold; border-top: 2px solid #111827; margin-top: 8px;" id="pdf-total-row"><span id="pdf-total-label">Total:</span><span id="pdf-total"></span></div>
+      <div style="display: none; justify-content: space-between; padding: 6px 0; font-size: 14px; color: #16a34a;" id="pdf-row-paid"><span>Monto Abonado:</span><span id="pdf-paid"></span></div>
+      <div style="display: none; justify-content: space-between; padding: 8px 0; font-size: 16px; font-weight: bold; color: #d97706; border-top: 1px dashed #d1d5db;" id="pdf-row-balance"><span>Balance Pendiente:</span><span id="pdf-balance"></span></div>
     </div>
     <div style="clear: both;"></div>
   </div>
