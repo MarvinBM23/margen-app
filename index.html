@@ -122,14 +122,14 @@
 
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h3 style="font-size:15px; margin:0;">Facturación Rápida de Productos</h3>
+          <h3 style="font-size:15px; margin:0;">Facturación Rápida (Desliza ↔️)</h3>
           <button class="btn-small btn-outline" onclick="navTo('sec-inventory')">Ver Almacén</button>
         </div>
         <div id="dash-inv-cards" class="horiz-scroll"></div>
       </div>
     </div>
 
-    <!-- CREADOR DE DOCUMENTOS (2 COLUMNAS EN PC) -->
+    <!-- CREADOR DE DOCUMENTOS -->
     <div id="sec-doc-builder" class="app-section">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
         <h3 style="font-size:18px;" id="doc-title-label">Nuevo Documento</h3>
@@ -138,7 +138,6 @@
       <input type="hidden" id="doc-type">
 
       <div class="split-layout-builder">
-        <!-- Columna Izquierda: Datos del Cliente y Comprobante -->
         <div class="card">
           <div id="div-factura-options" style="display:none; flex-direction:column;">
             <div class="row">
@@ -175,7 +174,6 @@
           <input type="email" id="doc-client-email" placeholder="cliente@correo.com">
         </div>
 
-        <!-- Columna Derecha: Artículos, Impuestos y Totales -->
         <div class="card">
           <label>Añadir Producto del Inventario</label>
           <div class="row">
@@ -184,7 +182,7 @@
           </div>
           <button class="btn btn-outline" style="padding:10px; margin-bottom:16px;" onclick="addDocItem()">+ Agregar Línea al Documento</button>
           
-          <div id="doc-items-list" style="margin-bottom: 16px; max-height: 240px; overflow-y: auto;"></div>
+          <div id="doc-items-list" class="slide-y" style="margin-bottom: 16px; max-height: 220px;"></div>
           
           <div class="row">
             <div><label>ITBIS (%)</label><input type="number" id="doc-tax" value="18" min="0" oninput="calcDoc()"></div>
@@ -212,22 +210,24 @@
       </div>
     </div>
 
-    <!-- COTIZACIONES -->
+    <!-- COTIZACIONES CON SLIDE INTERCAMBIABLE -->
     <div id="sec-quotes" class="app-section">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px; flex-wrap:wrap;">
-        <input type="text" id="search-quotes" class="search-box" style="margin:0; flex:1; min-width:220px;" placeholder="🔍 Buscar cotización por cliente o número..." oninput="renderQuotes()">
-        <button class="btn btn-primary" style="width:auto;" onclick="openDocBuilder('Cotización')">+ Nueva Cotización</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+        <input type="text" id="search-quotes" class="search-box" style="margin:0; flex:1; min-width:200px;" placeholder="🔍 Buscar cotización por cliente o número..." oninput="renderQuotes()">
+        <button class="btn btn-outline btn-small" onclick="toggleSlideMode('quote-list', this)">↔️ Slide Horizontal</button>
+        <button class="btn btn-primary btn-small" onclick="openDocBuilder('Cotización')">+ Nueva Cotización</button>
       </div>
-      <div id="quote-list" class="doc-grid"></div>
+      <div id="quote-list" class="doc-grid slide-y"></div>
     </div>
 
-    <!-- FACTURAS -->
+    <!-- FACTURAS CON SLIDE INTERCAMBIABLE -->
     <div id="sec-invoices" class="app-section">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px; flex-wrap:wrap;">
-        <input type="text" id="search-invoices" class="search-box" style="margin:0; flex:1; min-width:220px;" placeholder="🔍 Buscar factura por cliente, NCF, RNC o número..." oninput="renderInvoices()">
-        <button class="btn btn-primary" style="width:auto;" onclick="openDocBuilder('Factura')">+ Nueva Factura</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+        <input type="text" id="search-invoices" class="search-box" style="margin:0; flex:1; min-width:200px;" placeholder="🔍 Buscar factura por cliente, NCF, RNC o número..." oninput="renderInvoices()">
+        <button class="btn btn-outline btn-small" onclick="toggleSlideMode('invoice-list', this)">↔️ Slide Horizontal</button>
+        <button class="btn btn-primary btn-small" onclick="openDocBuilder('Factura')">+ Nueva Factura</button>
       </div>
-      <div id="invoice-list" class="doc-grid"></div>
+      <div id="invoice-list" class="doc-grid slide-y"></div>
     </div>
     
     <!-- CONTABILIDAD Y REPORTE 607 -->
@@ -248,7 +248,7 @@
       </div>
     </div>
 
-    <!-- CUENTAS POR COBRAR -->
+    <!-- CUENTAS POR COBRAR CON SLIDE -->
     <div id="sec-receivables" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -261,11 +261,17 @@
           </div>
           <button class="btn btn-primary" onclick="saveReceivable()">Guardar Cuenta</button>
         </div>
-        <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Listado de Cobros Manuales</h3><div id="receivables-list"></div></div>
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="font-size:16px; margin:0;">Listado de Cobros Manuales</h3>
+            <button class="btn btn-outline btn-small" onclick="toggleSlideMode('receivables-list', this)">↔️ Slide Horizontal</button>
+          </div>
+          <div id="receivables-list" class="slide-y"></div>
+        </div>
       </div>
     </div>
 
-    <!-- CUENTAS POR PAGAR -->
+    <!-- CUENTAS POR PAGAR CON SLIDE -->
     <div id="sec-payables" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -278,11 +284,17 @@
           </div>
           <button class="btn btn-primary" onclick="savePayable()">Guardar Obligación</button>
         </div>
-        <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Compromisos de Pago</h3><div id="payables-list"></div></div>
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="font-size:16px; margin:0;">Compromisos de Pago</h3>
+            <button class="btn btn-outline btn-small" onclick="toggleSlideMode('payables-list', this)">↔️ Slide Horizontal</button>
+          </div>
+          <div id="payables-list" class="slide-y"></div>
+        </div>
       </div>
     </div>
 
-    <!-- INVENTARIO Y KARDEX -->
+    <!-- INVENTARIO Y KARDEX CON SLIDE -->
     <div id="sec-inventory" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -303,17 +315,20 @@
           </div>
         </div>
         <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px; flex-wrap:wrap;">
             <h3 style="font-size:16px; margin:0;">Catálogo de Almacén</h3>
-            <button class="btn btn-outline btn-small" onclick="openKardexModal()">📜 Ver Kardex (Movimientos)</button>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-outline btn-small" onclick="toggleSlideMode('inventory-list', this)">↔️ Slide Horizontal</button>
+              <button class="btn btn-outline btn-small" onclick="openKardexModal()">📜 Kardex</button>
+            </div>
           </div>
           <input type="text" id="search-inv" class="search-box" placeholder="🔍 Filtrar productos por nombre..." oninput="renderInv()">
-          <div id="inventory-list"></div>
+          <div id="inventory-list" class="slide-y"></div>
         </div>
       </div>
     </div>
 
-    <!-- CLIENTES -->
+    <!-- CLIENTES CON SLIDE -->
     <div id="sec-clients" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -329,9 +344,12 @@
           <button class="btn btn-primary" onclick="saveClient()">Guardar Cliente</button>
         </div>
         <div class="card">
-          <h3 style="font-size:16px; margin-bottom:12px;">Directorio y Estado de Cuenta (CRM)</h3>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px; flex-wrap:wrap;">
+            <h3 style="font-size:16px; margin:0;">Directorio de Clientes (CRM)</h3>
+            <button class="btn btn-outline btn-small" onclick="toggleSlideMode('client-list', this)">↔️ Slide Horizontal</button>
+          </div>
           <input type="text" id="search-clients" class="search-box" placeholder="🔍 Buscar por nombre o RNC..." oninput="renderClients()">
-          <div id="client-list"></div>
+          <div id="client-list" class="slide-y"></div>
         </div>
       </div>
     </div>
@@ -349,7 +367,7 @@
           <h3 style="font-size:16px; margin-bottom:12px;">Administración de Empleados</h3>
           <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Código Maestro de tu Empresa (Compártelo con tu personal):</p>
           <div style="background:var(--input-bg); border:1px dashed var(--accent); padding:12px; border-radius:8px; text-align:center; font-family:monospace; font-size:14px; color:var(--accent); margin-bottom:15px; user-select:all;" id="t-my-code">Cargando...</div>
-          <div id="team-list"></div>
+          <div id="team-list" class="slide-y"></div>
         </div>
       </div>
     </div>
@@ -397,17 +415,17 @@
       <div class="widget" style="padding:10px;"><p style="font-size:11px;">Balance Pendiente</p><h3 id="mc-owed" style="color:var(--warn); font-size:16px;">$0</h3></div>
     </div>
     <h4 style="font-size:14px; margin-bottom:10px;">Historial de Facturación</h4>
-    <div id="mc-docs" style="max-height:240px; overflow-y:auto;"></div>
+    <div id="mc-docs" class="slide-y" style="max-height:240px;"></div>
   </div>
 </div>
 
-<!-- MODAL KARDEX (AUDITORÍA DE INVENTARIO) -->
+<!-- MODAL KARDEX -->
 <div id="modal-kardex" class="modal-overlay">
   <div class="modal-content">
     <button class="close-modal" onclick="closeModal('modal-kardex')">✖</button>
     <h2 style="margin-bottom:5px; color:var(--accent); font-size:18px;">📜 Historial de Almacén (Kardex)</h2>
     <p style="font-size:12px; color:var(--muted); margin-bottom:15px;">Últimos movimientos de entrada, salida y ajustes de stock.</p>
-    <div id="kardex-list" style="max-height:340px; overflow-y:auto;"></div>
+    <div id="kardex-list" class="slide-y" style="max-height:340px;"></div>
   </div>
 </div>
 
