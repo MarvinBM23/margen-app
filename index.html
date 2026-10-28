@@ -17,7 +17,6 @@
 
 <div class="container">
   
-  <!-- LOGIN / REGISTRO -->
   <div id="view-auth" class="view" style="justify-content: center;">
     <div class="card" style="padding: 28px;">
       <h1 style="color:var(--accent); font-size: 32px; text-align:center; margin-bottom: 5px;">Cifra Cloud</h1>
@@ -54,12 +53,10 @@
     </div>
   </div>
 
-  <!-- CARGANDO -->
   <div id="view-loading" class="view" style="justify-content: center; align-items: center;">
     <h2 style="color:var(--accent);">Sincronizando Cifra Cloud...</h2>
   </div>
 
-  <!-- APLICACIÓN PRINCIPAL -->
   <div id="view-app" class="view">
     <header>
       <button class="menu-toggle-btn" onclick="toggleSidebar()">☰</button>
@@ -210,7 +207,7 @@
       </div>
     </div>
 
-    <!-- COTIZACIONES CON SLIDE INTERCAMBIABLE -->
+    <!-- COTIZACIONES -->
     <div id="sec-quotes" class="app-section">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
         <input type="text" id="search-quotes" class="search-box" style="margin:0; flex:1; min-width:200px;" placeholder="🔍 Buscar cotización por cliente o número..." oninput="renderQuotes()">
@@ -220,7 +217,7 @@
       <div id="quote-list" class="doc-grid slide-y"></div>
     </div>
 
-    <!-- FACTURAS CON SLIDE INTERCAMBIABLE -->
+    <!-- FACTURAS -->
     <div id="sec-invoices" class="app-section">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
         <input type="text" id="search-invoices" class="search-box" style="margin:0; flex:1; min-width:200px;" placeholder="🔍 Buscar factura por cliente, NCF, RNC o número..." oninput="renderInvoices()">
@@ -237,7 +234,10 @@
           <h3 style="font-size:18px;">Estado Financiero y Fiscal</h3>
           <small style="color:var(--muted);">Datos calculados según el filtro de tiempo activo en el Panel Principal.</small>
         </div>
-        <button class="btn btn-primary btn-small" onclick="exportSalesCSV()">📥 Exportar Ventas Excel / CSV (Formato 607)</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-outline btn-small" onclick="openCashRegisterModal()">💵 Cuadre de Caja (Diario)</button>
+          <button class="btn btn-primary btn-small" onclick="exportSalesCSV()">📥 Exportar Ventas Excel / CSV (607)</button>
+        </div>
       </div>
       <div class="widget-grid">
         <div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div>
@@ -248,7 +248,7 @@
       </div>
     </div>
 
-    <!-- CUENTAS POR COBRAR CON SLIDE -->
+    <!-- CUENTAS POR COBRAR -->
     <div id="sec-receivables" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -271,7 +271,7 @@
       </div>
     </div>
 
-    <!-- CUENTAS POR PAGAR CON SLIDE -->
+    <!-- CUENTAS POR PAGAR -->
     <div id="sec-payables" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -294,7 +294,7 @@
       </div>
     </div>
 
-    <!-- INVENTARIO Y KARDEX CON SLIDE -->
+    <!-- INVENTARIO Y KARDEX -->
     <div id="sec-inventory" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -328,7 +328,7 @@
       </div>
     </div>
 
-    <!-- CLIENTES CON SLIDE -->
+    <!-- CLIENTES -->
     <div id="sec-clients" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -429,7 +429,79 @@
   </div>
 </div>
 
-<!-- PLANTILLA PDF (Oculta) -->
+<!-- MODAL ABONOS PARCIALES -->
+<div id="modal-payment" class="modal-overlay">
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeModal('modal-payment')">✖</button>
+    <h2 style="margin-bottom:5px; color:var(--accent); font-size:18px;">💵 Registrar Abono / Pago</h2>
+    <p id="mp-subtitle" style="font-size:12px; color:var(--muted); margin-bottom:15px;"></p>
+    <label>Monto a Abonar</label>
+    <input type="number" id="mp-amount" placeholder="0.00">
+    <label>Método de Pago</label>
+    <select id="mp-method"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Tarjeta">Tarjeta</option></select>
+    <button class="btn btn-primary" onclick="submitPayment()">Aplicar Abono</button>
+    <h4 style="font-size:13px; margin:15px 0 8px 0;">Recibos Anteriores:</h4>
+    <div id="mp-history" class="slide-y" style="max-height:150px;"></div>
+  </div>
+</div>
+
+<!-- MODAL CUADRE DE CAJA DIARIO -->
+<div id="modal-cash" class="modal-overlay">
+  <div class="modal-content" style="max-width: 520px;">
+    <button class="close-modal" onclick="closeModal('modal-cash')">✖</button>
+    <h2 style="margin-bottom:5px; color:var(--accent); font-size:18px;">💵 Cuadre de Caja Diario (Arqueo)</h2>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:15px;">Resumen de ingresos recibidos hoy en caja (Ventas al contado + Abonos parciales).</p>
+    
+    <div class="widget-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 15px;">
+      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Efectivo</p><h3 id="cash-efectivo" style="font-size:16px; color:var(--accent);">$0</h3></div>
+      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Transferencia</p><h3 id="cash-trans" style="font-size:16px; color:var(--info);">$0</h3></div>
+      <div class="widget" style="padding:10px;"><p style="font-size:10px;">Tarjeta</p><h3 id="cash-tarjeta" style="font-size:16px; color:var(--warn);">$0</h3></div>
+    </div>
+    
+    <div class="card" style="background:var(--nav-bg); padding:12px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+      <strong style="font-size:15px;">TOTAL INGRESOS HOY:</strong>
+      <strong id="cash-total" style="font-size:18px; color:var(--accent);">$0.00</strong>
+    </div>
+
+    <h4 style="font-size:13px; margin-bottom:8px;">Detalle de Transacciones de Hoy:</h4>
+    <div id="cash-details" class="slide-y" style="max-height:220px;"></div>
+  </div>
+</div>
+
+<!-- PLANTILLA TICKET TÉRMICO POS 80mm (Oculta) -->
+<div id="pos-wrapper"><div id="pos-container">
+  <div style="text-align:center; margin-bottom:10px;">
+    <strong style="font-size:14px; display:block;" id="pos-biz-name">NEGOCIO</strong>
+    <span id="pos-biz-rnc" style="display:block;">RNC: 000000000</span>
+    <span id="pos-biz-addr" style="display:block; font-size:10px;">Dirección</span>
+  </div>
+  <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:4px 0; margin-bottom:8px; font-size:11px;">
+    <span id="pos-doc-type" style="font-weight:bold; display:block;">FACTURA DE CONSUMO</span>
+    <span>Nº: <strong id="pos-doc-num">FAC-0001</strong></span><br>
+    <span id="pos-doc-ncf" style="display:block;">NCF: B0200000001</span>
+    <span>Fecha: <span id="pos-doc-date">00/00/0000</span></span>
+  </div>
+  <div style="margin-bottom:8px; font-size:11px;">
+    <strong>Cliente:</strong> <span id="pos-cli-name">Cliente</span><br>
+    <span id="pos-cli-rnc-wrap"><strong>RNC/Cédula:</strong> <span id="pos-cli-rnc"></span><br></span>
+  </div>
+  <table class="pos-table">
+    <thead><tr><th>Cant/Desc</th><th style="text-align:right;">Importe</th></tr></thead>
+    <tbody id="pos-table-body"></tbody>
+  </table>
+  <div style="border-top:1px dashed #000; padding-top:6px; font-size:11px;">
+    <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="pos-sub">0.00</span></div>
+    <div style="display:flex; justify-content:space-between;" id="pos-row-disc"><span>Descuento:</span><span id="pos-disc">0.00</span></div>
+    <div style="display:flex; justify-content:space-between;" id="pos-row-tax"><span>ITBIS:</span><span id="pos-tax">0.00</span></div>
+    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-top:4px; border-top:1px solid #000; padding-top:4px;"><span>TOTAL:</span><span id="pos-total">0.00</span></div>
+  </div>
+  <div style="text-align:center; margin-top:15px; font-size:10px;">
+    <span>¡Gracias por su compra!</span><br>
+    <span>Software: Cifra Cloud ERP</span>
+  </div>
+</div></div>
+
+<!-- PLANTILLA PDF CARTA (Oculta) -->
 <div id="pdf-wrapper"><div id="pdf-container">
   <div id="pdf-header" style="padding: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
     <div>
