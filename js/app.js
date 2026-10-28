@@ -999,3 +999,18 @@ function genPDF(id) {
     showToast("¡PDF Descargado!"); 
   });
 }
+// INTERRUPTOR INTERACTIVO ENTRE SLIDE VERTICAL Y CARRUSEL HORIZONTAL
+function toggleSlideMode(containerId, btn) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const isVertical = el.classList.contains('slide-y');
+  if (isVertical) {
+    el.classList.remove('slide-y');
+    el.classList.add('slide-x');
+    if (btn) btn.innerText = '↕️ Slide Vertical';
+  } else {
+    el.classList.remove('slide-x');
+    el.classList.add('slide-y');
+    if (btn) btn.innerText = '↔️ Slide Horizontal';
+  }
+}
