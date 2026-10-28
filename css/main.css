@@ -46,19 +46,73 @@ header { display: flex; justify-content: space-between; align-items: center; mar
 .app-section { display: none; }
 .app-section.active { display: block; animation: fadeIn 0.25s; }
 
-/* GRIDS Y LISTAS */
+/* GRIDS Y ELEMENTOS DE LISTA */
 .split-layout { display: flex; flex-direction: column; gap: 16px; }
-.item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; gap: 10px; }
+.item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; gap: 10px; transition: border-color 0.2s; }
+.item-row:hover { border-color: var(--accent); }
 .prod-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--card-bg); border: 1px solid var(--border); flex-shrink: 0; }
 .widget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .widget { background: var(--nav-bg); border: 1px solid var(--border); padding: 16px; border-radius: 12px; text-align: center; }
 .widget p { font-size: 12px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; font-weight: 600; }
 .widget h3 { font-size: 20px; }
 
-.horiz-scroll { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; }
-.horiz-scroll::-webkit-scrollbar { height: 6px; }
-.horiz-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.prod-card { min-width: 145px; max-width: 145px; background: var(--nav-bg); padding: 12px; border-radius: 12px; border: 1px solid var(--border); text-align: center; flex-shrink: 0; }
+/* =========================================================
+   SISTEMA DE SLIDE VERTICAL Y HORIZONTAL (CARRUSEL)
+   ========================================================= */
+/* Slide Vertical (Listas con scroll propio y cabecera fija) */
+.slide-y {
+  max-height: 58vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.slide-y::-webkit-scrollbar { width: 6px; }
+.slide-y::-webkit-scrollbar-track { background: transparent; }
+.slide-y::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+.slide-y::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* Slide Horizontal (Carrusel con encaje magnético / Snap) */
+.slide-x, .horiz-scroll {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 14px;
+  padding-bottom: 12px;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.slide-x::-webkit-scrollbar, .horiz-scroll::-webkit-scrollbar { height: 6px; }
+.slide-x::-webkit-scrollbar-track, .horiz-scroll::-webkit-scrollbar-track { background: transparent; }
+.slide-x::-webkit-scrollbar-thumb, .horiz-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+.slide-x::-webkit-scrollbar-thumb:hover, .horiz-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* Adaptación automática de tarjetas cuando están en modo Slide Horizontal */
+.slide-x > .card, .slide-x > .item-row {
+  min-width: 300px;
+  max-width: 330px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  margin-bottom: 0;
+}
+.slide-x > .item-row {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+}
+.slide-x > .item-row > div:last-child {
+  width: 100%;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.prod-card { min-width: 150px; max-width: 150px; background: var(--nav-bg); padding: 12px; border-radius: 12px; border: 1px solid var(--border); text-align: center; flex-shrink: 0; scroll-snap-align: start; }
 .prod-card img { width: 100%; height: 85px; border-radius: 8px; object-fit: cover; margin-bottom: 8px; background: var(--input-bg); }
 .prod-card h4 { font-size: 13px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prod-card p { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
@@ -86,16 +140,18 @@ header { display: flex; justify-content: space-between; align-items: center; mar
   .container { max-width: 1400px; padding: 30px 40px; }
   #view-auth, #view-loading { max-width: 440px; margin: 0 auto; }
   
-  /* Sidebar fijo a la izquierda y espacio de trabajo amplio a la derecha */
   #view-app { padding-left: 270px; }
   .menu-toggle-btn { display: none; }
   #sidebar-overlay { display: none !important; }
   #sidebar { left: 0 !important; width: 260px; box-shadow: none; }
   
-  /* Grids expandidos para aprovechar el monitor */
   .widget-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
   .split-layout { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+  .split-layout > .card:first-child { position: sticky; top: 20px; }
   .split-layout-builder { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; align-items: start; }
-  .doc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  
+  /* En PC, el Slide Vertical aprovecha la altura del monitor */
+  .slide-y { max-height: calc(100vh - 220px); }
+  .doc-grid.slide-y { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-content: start; }
   .doc-grid .card { margin-bottom: 0; }
 }
