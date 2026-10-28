@@ -17,152 +17,370 @@
 
 <div class="container">
   
+  <!-- LOGIN / REGISTRO -->
   <div id="view-auth" class="view" style="justify-content: center;">
-    <h1 style="color:var(--accent); font-size: 32px; text-align:center; margin-bottom: 5px;">Cifra Cloud</h1>
-    <p style="text-align:center; color:var(--muted); margin-bottom: 30px; font-size:14px;">Gestión Empresarial</p>
-    
-    <div id="form-login">
-      <input type="email" id="log-email" placeholder="Correo electrónico">
-      <input type="password" id="log-pass" placeholder="Contraseña">
-      <button class="btn btn-primary" onclick="login()">Iniciar Sesión</button>
-      <p style="text-align:center; margin-top:15px; font-size:14px; color:var(--muted); cursor:pointer;" onclick="toggleAuthForm()">¿No tienes cuenta? Registrate aquí</p>
-    </div>
-
-    <div id="form-register" style="display:none;">
-      <div class="row">
-        <div><input type="text" id="reg-name" placeholder="Nombre completo"></div>
-        <div><input type="text" id="reg-id" placeholder="Tu Cédula / RNC"></div>
+    <div class="card" style="padding: 28px;">
+      <h1 style="color:var(--accent); font-size: 32px; text-align:center; margin-bottom: 5px;">Cifra Cloud</h1>
+      <p style="text-align:center; color:var(--muted); margin-bottom: 25px; font-size:14px;">ERP & Gestión Empresarial</p>
+      
+      <div id="form-login">
+        <label>Correo Electrónico</label>
+        <input type="email" id="log-email" placeholder="nombre@empresa.com">
+        <label>Contraseña</label>
+        <input type="password" id="log-pass" placeholder="••••••••">
+        <button class="btn btn-primary" onclick="login()">Iniciar Sesión</button>
+        <p style="text-align:center; margin-top:15px; font-size:13px; color:var(--muted); cursor:pointer;" onclick="toggleAuthForm()">¿No tienes cuenta? Regístrate aquí</p>
       </div>
-      <input type="text" id="reg-phone" placeholder="Teléfono">
-      <input type="text" id="reg-loc" placeholder="Ubicación / Negocio">
-      <label style="margin-top:0;">F. Nacimiento</label><input type="date" id="reg-dob">
-      <hr style="border-color:var(--border); margin:10px 0;">
-      <input type="email" id="reg-email" placeholder="Correo electrónico">
-      <input type="password" id="reg-pass" placeholder="Contraseña (Min. 6 caracteres)">
-      <button class="btn btn-primary" onclick="register()">Crear Cuenta Profesional</button>
-      <p style="text-align:center; margin-top:15px; font-size:14px; color:var(--muted); cursor:pointer;" onclick="toggleAuthForm()">Volver al Login</p>
+
+      <div id="form-register" style="display:none;">
+        <div class="row">
+          <div><label>Tu Nombre</label><input type="text" id="reg-name" placeholder="Nombre completo"></div>
+          <div><label>Cédula / RNC</label><input type="text" id="reg-id" placeholder="000-0000000-0"></div>
+        </div>
+        <div class="row">
+          <div><label>Teléfono</label><input type="text" id="reg-phone" placeholder="809-000-0000"></div>
+          <div><label>F. Nacimiento</label><input type="date" id="reg-dob"></div>
+        </div>
+        <label>Nombre de tu Negocio</label>
+        <input type="text" id="reg-loc" placeholder="Ej. Comercial Cibao SRL">
+        <hr style="border-color:var(--border); margin:10px 0 15px 0;">
+        <label>Correo de Acceso</label>
+        <input type="email" id="reg-email" placeholder="correo@ejemplo.com">
+        <label>Contraseña (Mín. 6 caracteres)</label>
+        <input type="password" id="reg-pass" placeholder="••••••••">
+        <button class="btn btn-primary" onclick="register()">Crear Cuenta Empresarial</button>
+        <p style="text-align:center; margin-top:15px; font-size:13px; color:var(--muted); cursor:pointer;" onclick="toggleAuthForm()">Volver al Login</p>
+      </div>
     </div>
   </div>
 
+  <!-- CARGANDO -->
   <div id="view-loading" class="view" style="justify-content: center; align-items: center;">
-    <h2 style="color:var(--accent);">Conectando...</h2>
+    <h2 style="color:var(--accent);">Sincronizando Cifra Cloud...</h2>
   </div>
 
+  <!-- APLICACIÓN PRINCIPAL -->
   <div id="view-app" class="view">
     <header>
-      <button style="background:none; border:none; color:var(--text); font-size:24px;" onclick="toggleSidebar()">☰</button>
-      <div style="text-align: center;"><h1 style="font-size: 18px;" id="greeting">Hola</h1></div>
-      <select id="currency" style="width:auto; margin:0; padding:6px; font-size:14px; background:var(--input-bg); border-radius:8px; border:1px solid var(--border); color:var(--text);" onchange="updateAllViews()">
-        <option value="DOP" selected>RD $</option>
-        <option value="USD">USD $</option>
-        <option value="EUR">EUR €</option>
-      </select>
+      <button class="menu-toggle-btn" onclick="toggleSidebar()">☰</button>
+      <div><h1 style="font-size: 20px;" id="greeting">Hola</h1></div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <select id="currency" style="width:auto; margin:0; padding:8px 12px; font-size:13px; font-weight:bold;" onchange="updateAllViews()">
+          <option value="DOP" selected>RD$ (DOP)</option>
+          <option value="USD">US$ (USD)</option>
+          <option value="EUR">€ (EUR)</option>
+        </select>
+      </div>
     </header>
 
     <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
     <div id="sidebar">
-      <div style="border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px;"><strong id="user-display" style="color:var(--accent);"></strong><br><small id="user-loc" style="color:var(--muted);"></small></div>
-      <button class="menu-item active" onclick="navTo('sec-dashboard', this)">🏠 Inicio</button>
+      <div style="border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 15px;">
+        <h2 style="color:var(--accent); font-size:20px; margin-bottom:4px;">Cifra Cloud</h2>
+        <strong id="user-display" style="font-size:14px;"></strong><br>
+        <small id="user-loc" style="color:var(--muted); font-size:12px;"></small>
+      </div>
+      <button class="menu-item active" onclick="navTo('sec-dashboard', this)">🏠 Panel Principal</button>
       <button class="menu-item" onclick="navTo('sec-quotes', this)">📄 Cotizaciones</button>
-      <button class="menu-item" onclick="navTo('sec-invoices', this)">🧾 Facturas</button>
-      <button class="menu-item" id="nav-accounting" onclick="navTo('sec-accounting', this)">📊 Contabilidad</button>
+      <button class="menu-item" onclick="navTo('sec-invoices', this)">🧾 Facturación (NCF)</button>
+      <button class="menu-item" id="nav-accounting" onclick="navTo('sec-accounting', this)">📊 Contabilidad & 607</button>
       <button class="menu-item" onclick="navTo('sec-receivables', this)">📥 Cuentas por Cobrar</button>
       <button class="menu-item" onclick="navTo('sec-payables', this)">💸 Cuentas por Pagar</button>
-      <button class="menu-item" onclick="navTo('sec-inventory', this)">📦 Inventario</button>
-      <button class="menu-item" onclick="navTo('sec-clients', this)">👥 Clientes</button>
-      <button class="menu-item" onclick="navTo('sec-team', this)">👥 Mi Equipo</button>
-      <button class="menu-item" id="nav-settings" onclick="navTo('sec-settings', this)">⚙️ Ajustes PDF</button>
+      <button class="menu-item" onclick="navTo('sec-inventory', this)">📦 Inventario & Kardex</button>
+      <button class="menu-item" onclick="navTo('sec-clients', this)">👥 Directorio Clientes</button>
+      <button class="menu-item" onclick="navTo('sec-team', this)">🛡️ Mi Equipo</button>
+      <button class="menu-item" id="nav-settings" onclick="navTo('sec-settings', this)">⚙️ Ajustes de Empresa</button>
       <button class="menu-item" onclick="toggleTheme()">☀️ Cambiar Tema</button>
-      <button class="menu-item" style="color:var(--danger); margin-top:20px;" onclick="logout()">Cerrar Sesión Segura</button>
+      <button class="menu-item" style="color:var(--danger); margin-top:15px;" onclick="logout()">🚪 Cerrar Sesión</button>
     </div>
 
-    <!-- INICIO -->
+    <!-- DASHBOARD -->
     <div id="sec-dashboard" class="app-section active">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-        <h3 style="font-size:16px; margin:0;">Resumen Financiero</h3>
-        <select id="dash-filter" style="width:auto; margin:0; padding:6px; font-size:12px; background:var(--card-bg); border:1px solid var(--border); border-radius:6px; color:var(--text);" onchange="updateAllViews()">
-          <option value="all">Histórico</option><option value="today">Hoy</option><option value="month" selected>Este Mes</option><option value="year">Este Año</option>
-        </select>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h3 style="font-size:16px; margin:0;">Resumen de Operaciones</h3>
+          <small style="color:var(--muted); font-size:11px;" id="rate-info">Obteniendo tasa en vivo...</small>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="dash-filter" style="width:auto; margin:0; padding:8px 12px; font-size:13px;" onchange="updateAllViews()">
+            <option value="all">Todo el Historial</option>
+            <option value="today">Hoy</option>
+            <option value="month" selected>Este Mes</option>
+            <option value="year">Este Año</option>
+          </select>
+          <button class="btn btn-outline btn-small" onclick="openDocBuilder('Cotización')">+ Cotizar</button>
+          <button class="btn btn-primary btn-small" onclick="openDocBuilder('Factura')">+ Facturar</button>
+        </div>
       </div>
-      <p style="font-size:11px; text-align:right; color:var(--muted); margin-bottom:8px;" id="rate-info">Obteniendo tasa en vivo...</p>
+
       <div class="widget-grid">
-        <div class="widget"><p>Ingresos Netos</p><h3 id="dash-inv-total" style="color:var(--accent);">$0.00</h3></div>
-        <div class="widget"><p>Por Cobrar (Total)</p><h3 id="dash-quo-total" style="color:var(--warn);">$0.00</h3></div>
+        <div class="widget"><p>Ingresos Cobrados</p><h3 id="dash-inv-total" style="color:var(--accent);">$0.00</h3></div>
+        <div class="widget"><p>Cuentas por Cobrar</p><h3 id="dash-quo-total" style="color:var(--warn);">$0.00</h3></div>
+        <div class="widget"><p>Facturas Emitidas</p><h3 id="dash-doc-count">0</h3></div>
+        <div class="widget"><p>Alertas de Stock</p><h3 id="dash-low-stock" style="color:var(--danger);">0</h3></div>
       </div>
+
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><h3 style="font-size:16px; margin:0;">Inventario Rápido</h3></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="font-size:15px; margin:0;">Facturación Rápida de Productos</h3>
+          <button class="btn-small btn-outline" onclick="navTo('sec-inventory')">Ver Almacén</button>
+        </div>
         <div id="dash-inv-cards" class="horiz-scroll"></div>
       </div>
-      <div class="row">
-        <button class="btn btn-outline" onclick="openDocBuilder('Cotización')">+ Cotización</button>
-        <button class="btn btn-primary" onclick="openDocBuilder('Factura')">+ Factura</button>
-      </div>
     </div>
 
-    <!-- EQUIPO SAAS -->
-    <div id="sec-team" class="app-section">
-      <div class="card">
-        <h3 style="font-size:16px; margin-bottom:12px;">Unirse a un Negocio</h3>
-        <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Si eres empleado, pide el código a tu administrador e ingrésalo aquí para vincular tu cuenta:</p>
-        <div class="row">
-          <div style="flex:2;"><input type="text" id="t-join-code" placeholder="Pegar código..."></div>
-          <div style="flex:1;"><button class="btn btn-primary" onclick="joinBusiness()">Unirse</button></div>
-        </div>
-      </div>
-      <div class="card" id="admin-team-panel" style="display:none;">
-        <h3 style="font-size:16px; margin-bottom:12px;">Administrar Empleados</h3>
-        <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Comparte tu código maestro con tus empleados para que se unan a tu negocio. Podrás asignarles roles.</p>
-        <div style="background:var(--input-bg); padding:10px; border-radius:8px; text-align:center; font-family:monospace; font-size:14px; color:var(--accent); margin-bottom:15px; user-select:all; cursor:pointer;" id="t-my-code">Cargando...</div>
-        <div id="team-list"></div>
-      </div>
-    </div>
-
-    <!-- DOCUMENTOS -->
+    <!-- CREADOR DE DOCUMENTOS (2 COLUMNAS EN PC) -->
     <div id="sec-doc-builder" class="app-section">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><h3 style="font-size:16px;" id="doc-title-label">Nuevo Documento</h3><button class="btn-small btn-outline" onclick="navTo('sec-dashboard')">Volver</button></div>
-        <input type="hidden" id="doc-type">
-        <div class="row" id="div-factura-options" style="display:none;"><div><label>Vence el</label><input type="date" id="doc-due-date"></div><div><label>Método de Pago</label><select id="doc-payment"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Crédito">Crédito</option></select></div></div>
-        <label>Cliente</label><input list="dl-clients" id="doc-client-name" placeholder="Escribe el nombre..." onchange="fillClientData()"><datalist id="dl-clients"></datalist>
-        <input type="text" id="doc-client-rnc" placeholder="RNC / Cédula (Opcional)">
-        <div class="row"><div><input type="email" id="doc-client-email" placeholder="Correo"></div><div><input type="text" id="doc-client-phone" placeholder="Teléfono"></div></div>
-        <hr style="border-top:1px solid var(--border); margin:15px 0;">
-        <label>Añadir Producto</label>
-        <div class="row"><div style="flex:2;"><select id="doc-product-select"></select></div><div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1"></div></div>
-        <button class="btn btn-outline" style="padding:8px; margin-bottom:16px;" onclick="addDocItem()">+ Añadir</button>
-        <div id="doc-items-list" style="margin-bottom: 20px;"></div>
-        <div class="row"><div><label>ITBIS (%)</label><input type="number" id="doc-tax" value="18" min="0" oninput="calcDoc()"></div><div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" oninput="calcDoc()"></div></div>
-        <div id="div-internal-calc"><label>Servicios / Mano de Obra (Adicional)</label><div class="row"><div><label>Horas</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div><div><label>Tarifa</label><input type="number" id="doc-rate" value="0" oninput="calcDoc()"></div></div></div>
-        <div class="card" style="background:var(--nav-bg); margin-top:15px; padding:12px;">
-          <div class="row"><span style="color:var(--muted)">Subtotal:</span><span id="s-sub" style="text-align:right;">0.00</span></div>
-          <div class="row" style="border-top:1px solid var(--border); padding-top:8px; margin-top:8px; font-weight:bold; font-size:18px; color:var(--accent);"><span id="s-total-label">Total:</span><span id="s-final" style="text-align:right;">0.00</span></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h3 style="font-size:18px;" id="doc-title-label">Nuevo Documento</h3>
+        <button class="btn-small btn-outline" onclick="navTo('sec-dashboard')">✖ Cancelar y Volver</button>
+      </div>
+      <input type="hidden" id="doc-type">
+
+      <div class="split-layout-builder">
+        <!-- Columna Izquierda: Datos del Cliente y Comprobante -->
+        <div class="card">
+          <div id="div-factura-options" style="display:none; flex-direction:column;">
+            <div class="row">
+              <div>
+                <label>Comprobante Fiscal (DGII)</label>
+                <select id="doc-ncf-type" onchange="handleNcfChange()">
+                  <option value="B02">B02 - Consumidor Final</option>
+                  <option value="B01">B01 - Crédito Fiscal (RNC)</option>
+                  <option value="B14">B14 - Régimen Especial (Sin ITBIS)</option>
+                  <option value="B15">B15 - Gubernamental</option>
+                  <option value="Interna">Sin NCF (Factura Interna)</option>
+                </select>
+              </div>
+              <div>
+                <label>NCF Manual (Opcional)</label>
+                <input type="text" id="doc-ncf-custom" placeholder="Auto-generado si vacío">
+              </div>
+            </div>
+            <div class="row">
+              <div><label>Fecha Vencimiento</label><input type="date" id="doc-due-date"></div>
+              <div><label>Condición / Pago</label><select id="doc-payment"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Tarjeta">Tarjeta</option><option value="Crédito">A Crédito (Cuentas x Cobrar)</option></select></div>
+            </div>
+          </div>
+
+          <label>Cliente / Razón Social</label>
+          <input list="dl-clients" id="doc-client-name" placeholder="Buscar o escribir nombre del cliente..." onchange="fillClientData()">
+          <datalist id="dl-clients"></datalist>
+          
+          <div class="row">
+            <div><label>RNC o Cédula</label><input type="text" id="doc-client-rnc" placeholder="Requerido para B01"></div>
+            <div><label>Teléfono (WhatsApp)</label><input type="text" id="doc-client-phone" placeholder="809-000-0000"></div>
+          </div>
+          <label>Correo Electrónico</label>
+          <input type="email" id="doc-client-email" placeholder="cliente@correo.com">
+        </div>
+
+        <!-- Columna Derecha: Artículos, Impuestos y Totales -->
+        <div class="card">
+          <label>Añadir Producto del Inventario</label>
+          <div class="row">
+            <div style="flex:2.5;"><select id="doc-product-select"></select></div>
+            <div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1"></div>
+          </div>
+          <button class="btn btn-outline" style="padding:10px; margin-bottom:16px;" onclick="addDocItem()">+ Agregar Línea al Documento</button>
+          
+          <div id="doc-items-list" style="margin-bottom: 16px; max-height: 240px; overflow-y: auto;"></div>
+          
+          <div class="row">
+            <div><label>ITBIS (%)</label><input type="number" id="doc-tax" value="18" min="0" oninput="calcDoc()"></div>
+            <div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" oninput="calcDoc()"></div>
+          </div>
+          
+          <div id="div-internal-calc">
+            <label>Mano de Obra / Servicio Adicional</label>
+            <div class="row">
+              <div><label>Cant. Horas/Serv.</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div>
+              <div><label>Precio Unitario</label><input type="number" id="doc-rate" value="0" oninput="calcDoc()"></div>
+            </div>
+          </div>
+          
+          <div class="card" style="background:var(--nav-bg); margin-top:10px; padding:14px;">
+            <div class="row" style="margin-bottom:4px;"><span style="color:var(--muted); font-size:13px;">Subtotal:</span><span id="s-sub" style="text-align:right; font-size:13px;">0.00</span></div>
+            <div class="row" style="border-top:1px solid var(--border); padding-top:8px; margin-top:6px; font-weight:bold; font-size:19px; color:var(--accent);"><span id="s-total-label">Total:</span><span id="s-final" style="text-align:right;">0.00</span></div>
+          </div>
+
+          <div id="doc-action-btns" style="display:flex; gap:10px; margin-top:12px;">
+            <button class="btn btn-primary" style="flex:1;" id="btn-save-doc" onclick="saveDoc()">Guardar</button>
+            <button class="btn" style="flex:1; background:var(--info); color:#fff; display:none;" id="btn-facturar-cot" onclick="convertAndSave()">Convertir a Factura</button>
+          </div>
         </div>
       </div>
-      <div id="doc-action-btns" style="display:flex; gap:10px;"><button class="btn btn-primary" style="flex:1;" id="btn-save-doc" onclick="saveDoc()">Guardar</button><button class="btn" style="flex:1; background:var(--accent); color:#fff; display:none;" id="btn-facturar-cot" onclick="convertAndSave()">Facturar Directo</button></div>
     </div>
 
-    <!-- LISTAS -->
-    <div id="sec-quotes" class="app-section"><button class="btn btn-primary" style="margin-bottom:15px;" onclick="openDocBuilder('Cotización')">+ Cotización</button><div id="quote-list"></div></div>
-    <div id="sec-invoices" class="app-section"><button class="btn btn-primary" style="margin-bottom:15px;" onclick="openDocBuilder('Factura')">+ Factura</button><div id="invoice-list"></div></div>
+    <!-- COTIZACIONES -->
+    <div id="sec-quotes" class="app-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px; flex-wrap:wrap;">
+        <input type="text" id="search-quotes" class="search-box" style="margin:0; flex:1; min-width:220px;" placeholder="🔍 Buscar cotización por cliente o número..." oninput="renderQuotes()">
+        <button class="btn btn-primary" style="width:auto;" onclick="openDocBuilder('Cotización')">+ Nueva Cotización</button>
+      </div>
+      <div id="quote-list" class="doc-grid"></div>
+    </div>
+
+    <!-- FACTURAS -->
+    <div id="sec-invoices" class="app-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px; flex-wrap:wrap;">
+        <input type="text" id="search-invoices" class="search-box" style="margin:0; flex:1; min-width:220px;" placeholder="🔍 Buscar factura por cliente, NCF, RNC o número..." oninput="renderInvoices()">
+        <button class="btn btn-primary" style="width:auto;" onclick="openDocBuilder('Factura')">+ Nueva Factura</button>
+      </div>
+      <div id="invoice-list" class="doc-grid"></div>
+    </div>
     
-    <!-- CONTABILIDAD Y DEUDAS -->
-    <div id="sec-accounting" class="app-section"><div class="widget-grid"><div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div><div class="widget"><p>Por Pagar (AP)</p><h3 id="acc-ap" style="color:var(--danger);">$0.00</h3></div><div class="widget"><p>Ganancia Neta Operativa</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div><div class="widget"><p>Impuestos (ITBIS)</p><h3 id="acc-tax">$0.00</h3></div><div class="widget" style="grid-column: span 2;"><p>Valor Inventario Actual</p><h3 id="acc-inv-value">$0.00</h3></div></div></div>
-    <div id="sec-receivables" class="app-section"><div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Deuda a tu favor</h3><input type="text" id="r-concept" placeholder="Cliente o Concepto"><div class="row"><div><label>Monto</label><input type="number" id="r-amount" value="0"></div><div><label>Vencimiento</label><input type="date" id="r-date"></div></div><button class="btn btn-primary" onclick="saveReceivable()">Guardar</button></div><div class="card"><div id="receivables-list"></div></div></div>
-    <div id="sec-payables" class="app-section"><div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Gasto a pagar</h3><input type="text" id="p-concept" placeholder="Concepto o Proveedor"><div class="row"><div><label>Monto</label><input type="number" id="p-amount" value="0"></div><div><label>Vencimiento</label><input type="date" id="p-date"></div></div><button class="btn btn-primary" onclick="savePayable()">Guardar</button></div><div class="card"><div id="payables-list"></div></div></div>
+    <!-- CONTABILIDAD Y REPORTE 607 -->
+    <div id="sec-accounting" class="app-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h3 style="font-size:18px;">Estado Financiero y Fiscal</h3>
+          <small style="color:var(--muted);">Datos calculados según el filtro de tiempo activo en el Panel Principal.</small>
+        </div>
+        <button class="btn btn-primary btn-small" onclick="exportSalesCSV()">📥 Exportar Ventas Excel / CSV (Formato 607)</button>
+      </div>
+      <div class="widget-grid">
+        <div class="widget"><p>Por Cobrar (AR)</p><h3 id="acc-ar" style="color:var(--warn);">$0.00</h3></div>
+        <div class="widget"><p>Por Pagar (AP)</p><h3 id="acc-ap" style="color:var(--danger);">$0.00</h3></div>
+        <div class="widget"><p>Ganancia Neta Operativa</p><h3 id="acc-profit" style="color:var(--accent);">$0.00</h3></div>
+        <div class="widget"><p>ITBIS Retenido / Facturado</p><h3 id="acc-tax">$0.00</h3></div>
+        <div class="widget" style="grid-column: span 2;"><p>Valor de Inventario en Almacén (Al Costo)</p><h3 id="acc-inv-value">$0.00</h3></div>
+      </div>
+    </div>
 
-    <!-- INVENTARIO, CLIENTES Y AJUSTES -->
+    <!-- CUENTAS POR COBRAR -->
+    <div id="sec-receivables" class="app-section">
+      <div class="split-layout">
+        <div class="card">
+          <h3 style="font-size:16px; margin-bottom:12px;">Registrar Cuenta por Cobrar</h3>
+          <label>Cliente o Concepto</label>
+          <input type="text" id="r-concept" placeholder="Ej. Pagaré Juan Pérez">
+          <div class="row">
+            <div><label>Monto</label><input type="number" id="r-amount" value="0"></div>
+            <div><label>Vencimiento</label><input type="date" id="r-date"></div>
+          </div>
+          <button class="btn btn-primary" onclick="saveReceivable()">Guardar Cuenta</button>
+        </div>
+        <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Listado de Cobros Manuales</h3><div id="receivables-list"></div></div>
+      </div>
+    </div>
+
+    <!-- CUENTAS POR PAGAR -->
+    <div id="sec-payables" class="app-section">
+      <div class="split-layout">
+        <div class="card">
+          <h3 style="font-size:16px; margin-bottom:12px;">Registrar Gasto o Suplidor</h3>
+          <label>Suplidor o Concepto</label>
+          <input type="text" id="p-concept" placeholder="Ej. Factura Edesur / Suplidor">
+          <div class="row">
+            <div><label>Monto</label><input type="number" id="p-amount" value="0"></div>
+            <div><label>Vencimiento</label><input type="date" id="p-date"></div>
+          </div>
+          <button class="btn btn-primary" onclick="savePayable()">Guardar Obligación</button>
+        </div>
+        <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Compromisos de Pago</h3><div id="payables-list"></div></div>
+      </div>
+    </div>
+
+    <!-- INVENTARIO Y KARDEX -->
     <div id="sec-inventory" class="app-section">
-      <div class="card"><h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3><input type="text" id="i-name" placeholder="Nombre del Producto"><div class="row"><div><label>Costo Adquisición</label><input type="number" id="i-cost" value="0"></div><div><label>Precio Venta</label><input type="number" id="i-price" value="0"></div></div><label>Cantidad (Stock)</label><input type="number" id="i-stock" value="0"><label>Imagen</label><input type="file" id="i-img" accept="image/*"><div class="row"><button class="btn btn-outline" onclick="clearInvForm()">Cancelar</button><button class="btn btn-primary" id="btn-save-inv" onclick="saveInv()">Guardar Nube</button></div></div>
-      <div class="card"><div id="inventory-list"></div></div>
+      <div class="split-layout">
+        <div class="card">
+          <h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3>
+          <label>Nombre o Referencia</label>
+          <input type="text" id="i-name" placeholder="Nombre del Producto">
+          <div class="row">
+            <div><label>Costo Compra</label><input type="number" id="i-cost" value="0"></div>
+            <div><label>Precio Venta</label><input type="number" id="i-price" value="0"></div>
+          </div>
+          <label>Existencia Actual (Stock)</label>
+          <input type="number" id="i-stock" value="0">
+          <label>Fotografía del Producto</label>
+          <input type="file" id="i-img" accept="image/*">
+          <div class="row">
+            <button class="btn btn-outline" onclick="clearInvForm()">Limpiar</button>
+            <button class="btn btn-primary" id="btn-save-inv" onclick="saveInv()">Guardar Nube</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
+            <h3 style="font-size:16px; margin:0;">Catálogo de Almacén</h3>
+            <button class="btn btn-outline btn-small" onclick="openKardexModal()">📜 Ver Kardex (Movimientos)</button>
+          </div>
+          <input type="text" id="search-inv" class="search-box" placeholder="🔍 Filtrar productos por nombre..." oninput="renderInv()">
+          <div id="inventory-list"></div>
+        </div>
+      </div>
     </div>
+
+    <!-- CLIENTES -->
     <div id="sec-clients" class="app-section">
-      <div class="card"><h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3><input type="text" id="c-name" placeholder="Nombre / Razón Social"><input type="text" id="c-rnc" placeholder="RNC / Cédula"><input type="email" id="c-email" placeholder="Correo"><input type="text" id="c-address" placeholder="Teléfono / Dirección"><button class="btn btn-primary" onclick="saveClient()">Guardar Nube</button></div>
-      <div class="card"><div id="client-list"></div></div>
+      <div class="split-layout">
+        <div class="card">
+          <h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3>
+          <label>Nombre / Razón Social</label>
+          <input type="text" id="c-name" placeholder="Ej. Ferretería Del Norte">
+          <label>RNC / Cédula</label>
+          <input type="text" id="c-rnc" placeholder="Ej. 101-00000-1">
+          <label>Teléfono / WhatsApp</label>
+          <input type="text" id="c-address" placeholder="809-000-0000">
+          <label>Correo Electrónico</label>
+          <input type="email" id="c-email" placeholder="contacto@cliente.com">
+          <button class="btn btn-primary" onclick="saveClient()">Guardar Cliente</button>
+        </div>
+        <div class="card">
+          <h3 style="font-size:16px; margin-bottom:12px;">Directorio y Estado de Cuenta (CRM)</h3>
+          <input type="text" id="search-clients" class="search-box" placeholder="🔍 Buscar por nombre o RNC..." oninput="renderClients()">
+          <div id="client-list"></div>
+        </div>
+      </div>
     </div>
+
+    <!-- MI EQUIPO SAAS -->
+    <div id="sec-team" class="app-section">
+      <div class="split-layout">
+        <div class="card">
+          <h3 style="font-size:16px; margin-bottom:12px;">Unirse a un Negocio Existente</h3>
+          <p style="font-size:12px; color:var(--muted); margin-bottom:12px;">Si eres empleado o cajero, pide el código de empresa a tu administrador y pégalo aquí:</p>
+          <input type="text" id="t-join-code" placeholder="Pegar código de empresa...">
+          <button class="btn btn-primary" onclick="joinBusiness()">Vincular mi Cuenta</button>
+        </div>
+        <div class="card" id="admin-team-panel" style="display:none;">
+          <h3 style="font-size:16px; margin-bottom:12px;">Administración de Empleados</h3>
+          <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Código Maestro de tu Empresa (Compártelo con tu personal):</p>
+          <div style="background:var(--input-bg); border:1px dashed var(--accent); padding:12px; border-radius:8px; text-align:center; font-family:monospace; font-size:14px; color:var(--accent); margin-bottom:15px; user-select:all;" id="t-my-code">Cargando...</div>
+          <div id="team-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AJUSTES -->
     <div id="sec-settings" class="app-section">
-      <div class="card"><h3 style="margin-bottom:15px; font-size:16px;">Apariencia PDF</h3><div class="row"><div><label>Color Marca</label><input type="color" id="set-color" value="#111827"></div><div><label>Fuente</label><select id="set-font"><option value="Helvetica">Helvetica</option><option value="Times">Times</option></select></div></div><label>Diseño Factura</label><select id="set-inv-tpl"><option value="modern">Moderna</option><option value="classic">Clásica</option></select><label>Logo de tu Negocio</label><input type="file" accept="image/*" onchange="handleLogoUpload(event)"></div>
-      <div class="card"><h3 style="margin-bottom:15px; font-size:16px;">Datos del Negocio</h3><input type="text" id="set-biz-name" placeholder="Nombre Legal"><input type="text" id="set-biz-id" placeholder="RNC del Negocio"><input type="text" id="set-biz-address" placeholder="Dirección"><button class="btn btn-primary" onclick="saveSettings()">Guardar Configuración</button></div>
+      <div class="split-layout">
+        <div class="card">
+          <h3 style="margin-bottom:15px; font-size:16px;">Personalización de Factura PDF</h3>
+          <div class="row">
+            <div><label>Color Institucional</label><input type="color" id="set-color" value="#111827"></div>
+            <div><label>Tipografía</label><select id="set-font"><option value="Helvetica">Helvetica (Moderna)</option><option value="Times">Times (Clásica)</option></select></div>
+          </div>
+          <label>Estilo de Encabezado</label>
+          <select id="set-inv-tpl"><option value="modern">Bloque Sólido Moderno</option><option value="classic">Minimalista Clásico</option></select>
+          <label>Logo de tu Empresa</label>
+          <input type="file" accept="image/*" onchange="handleLogoUpload(event)">
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:15px; font-size:16px;">Datos Fiscales del Emisor</h3>
+          <label>Razón Social / Nombre Comercial</label>
+          <input type="text" id="set-biz-name" placeholder="Nombre de tu empresa">
+          <label>RNC del Negocio</label>
+          <input type="text" id="set-biz-id" placeholder="RNC de tu empresa">
+          <label>Dirección y Teléfono</label>
+          <input type="text" id="set-biz-address" placeholder="Santiago de los Caballeros, RD | Tel: 809...">
+          <button class="btn btn-primary" onclick="saveSettings()">Guardar Configuración</button>
+        </div>
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -174,29 +392,58 @@
     <button class="close-modal" onclick="closeModal('modal-client')">✖</button>
     <h2 id="mc-name" style="margin-bottom:5px; color:var(--accent);">Nombre</h2>
     <p id="mc-contact" style="font-size:13px; color:var(--muted); margin-bottom:15px;"></p>
-    <div class="widget-grid" style="grid-template-columns: 1fr 1fr;"><div class="widget" style="padding:10px;"><p style="font-size:11px;">Total Facturado</p><h3 id="mc-bought" style="color:var(--accent); font-size:16px;">$0</h3></div><div class="widget" style="padding:10px;"><p style="font-size:11px;">Deuda Actual</p><h3 id="mc-owed" style="color:var(--warn); font-size:16px;">$0</h3></div></div>
-    <h4 style="font-size:14px; margin-bottom:10px;">Facturas del Cliente</h4>
-    <div id="mc-docs" style="max-height:200px; overflow-y:auto;"></div>
+    <div class="widget-grid" style="grid-template-columns: 1fr 1fr;">
+      <div class="widget" style="padding:10px;"><p style="font-size:11px;">Total Pagado</p><h3 id="mc-bought" style="color:var(--accent); font-size:16px;">$0</h3></div>
+      <div class="widget" style="padding:10px;"><p style="font-size:11px;">Balance Pendiente</p><h3 id="mc-owed" style="color:var(--warn); font-size:16px;">$0</h3></div>
+    </div>
+    <h4 style="font-size:14px; margin-bottom:10px;">Historial de Facturación</h4>
+    <div id="mc-docs" style="max-height:240px; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- MODAL KARDEX (AUDITORÍA DE INVENTARIO) -->
+<div id="modal-kardex" class="modal-overlay">
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeModal('modal-kardex')">✖</button>
+    <h2 style="margin-bottom:5px; color:var(--accent); font-size:18px;">📜 Historial de Almacén (Kardex)</h2>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:15px;">Últimos movimientos de entrada, salida y ajustes de stock.</p>
+    <div id="kardex-list" style="max-height:340px; overflow-y:auto;"></div>
   </div>
 </div>
 
 <!-- PLANTILLA PDF (Oculta) -->
 <div id="pdf-wrapper"><div id="pdf-container">
   <div id="pdf-header" style="padding: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
-    <div><h1 style="font-size: 36px; margin: 0; text-transform:uppercase;" id="pdf-type">DOCUMENTO</h1><p style="margin-top:8px; font-size:14px;" id="pdf-meta"></p></div>
-    <div style="text-align:right;"><img id="pdf-logo-img" src="" style="max-height:80px; margin-bottom:10px;"><p style="font-weight:bold; font-size:18px; margin:0;" id="pdf-biz-name"></p><p style="font-size:12px; margin:0;" id="pdf-biz-meta"></p></div>
+    <div>
+      <h1 style="font-size: 32px; margin: 0; text-transform:uppercase;" id="pdf-type">DOCUMENTO</h1>
+      <p style="margin-top:8px; font-size:13px; line-height:1.5;" id="pdf-meta"></p>
+    </div>
+    <div style="text-align:right;">
+      <img id="pdf-logo-img" src="" style="max-height:75px; margin-bottom:10px; margin-left:auto;">
+      <p style="font-weight:bold; font-size:18px; margin:0;" id="pdf-biz-name"></p>
+      <p style="font-size:12px; margin:0; line-height:1.4;" id="pdf-biz-meta"></p>
+    </div>
   </div>
   <div style="padding: 20px 30px 0 30px; display:flex; justify-content:space-between;">
-    <div><p style="font-size:12px; color:#6b7280; margin-bottom:2px; text-transform:uppercase;">Facturado a:</p><p style="font-size:16px; font-weight:bold; margin:0;" id="pdf-cli-name"></p><p style="font-size:12px; margin:0;" id="pdf-cli-meta"></p></div><div style="text-align:right;" id="pdf-status-stamp"></div>
+    <div>
+      <p style="font-size:11px; color:#6b7280; margin-bottom:2px; text-transform:uppercase; font-weight:bold;">Facturado a:</p>
+      <p style="font-size:16px; font-weight:bold; margin:0;" id="pdf-cli-name"></p>
+      <p style="font-size:12px; margin:0; line-height:1.4;" id="pdf-cli-meta"></p>
+    </div>
+    <div style="text-align:right;" id="pdf-status-stamp"></div>
   </div>
   <div style="padding: 30px;">
-    <table class="pdf-table"><thead id="pdf-table-head"><tr><th>Descripción</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Importe</th></tr></thead><tbody id="pdf-table-body"></tbody></table>
+    <table class="pdf-table">
+      <thead id="pdf-table-head"><tr><th>Descripción</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Importe</th></tr></thead>
+      <tbody id="pdf-table-body"></tbody>
+    </table>
     <div style="width: 320px; float: right; margin-top:20px;">
       <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;"><span>Subtotal:</span><span id="pdf-sub"></span></div>
       <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;" id="pdf-row-disc"><span>Descuento:</span><span id="pdf-disc"></span></div>
       <div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb;" id="pdf-row-tax"><span>ITBIS:</span><span id="pdf-tax"></span></div>
       <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 20px; font-weight: bold; border-top: 2px solid #111827; margin-top: 8px;" id="pdf-total-row"><span id="pdf-total-label">Total:</span><span id="pdf-total"></span></div>
-    </div><div style="clear: both;"></div>
+    </div>
+    <div style="clear: both;"></div>
   </div>
 </div></div>
 
