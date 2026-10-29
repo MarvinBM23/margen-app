@@ -32,16 +32,6 @@ const NCF_LABELS = {
   'Interna': 'Factura Comercial'
 };
 
-// GENERADOR DE SERIE ÚNICA PARA PRODUCTOS (SN-XXXXXX)
-function generateUniqueSerial() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'SN-';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
 async function fetchRates() {
   try {
     const res = await fetch('https://open.er-api.com/v6/latest/USD');
@@ -82,6 +72,16 @@ function getDocBalance(d) {
   return Math.max(0, total - getDocPaid(d));
 }
 
+// GENERADOR AUTOMÁTICO DE CÓDIGO SERIE ÚNICO DE PRODUCTO (SKU/UID)
+function generateUniqueSKU() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 6; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `CIF-${rand}`;
+}
+
 // CÁLCULO DE MARGEN Y PRECIO
 function calcPriceFromMargin() {
   const cost = parseFloat(document.getElementById('i-cost')?.value) || 0;
@@ -112,11 +112,7 @@ function startBarcodeScan(mode = 'doc') {
   const modal = document.getElementById('modal-scanner');
   if (modal) modal.classList.add('active');
   const statusEl = document.getElementById('scanner-status');
-  if (statusEl) {
-    if (mode === 'inv-imei') statusEl.innerText = "Apunta la cámara al IMEI del equipo...";
-    else if (mode === 'inv-barcode') statusEl.innerText = "Apunta la cámara al código de barras/SKU...";
-    else statusEl.innerText = "Escanea IMEI, Código de barras o Serie para añadir...";
-  }
+  if (statusEl) statusEl.innerText = mode === 'inv' ? "Apunta al código IMEI de la caja o equipo..." : "Apunta al código IMEI para facturar...";
 
   if (html5QrScanner) {
     html5QrScanner.clear().catch(() => {});
@@ -153,25 +149,17 @@ function stopBarcodeScan() {
 function onBarcodeScanned(code) {
   if (!code) return;
 
-  if (scanTargetMode === 'inv-imei') {
-    const imeiEl = document.getElementById('i-imei');
-    if (imeiEl) imeiEl.value = code;
+  if (scanTargetMode === 'inv') {
+    const barEl = document.getElementById('i-barcode');
+    if (barEl) barEl.value = code;
     showToast(`IMEI asignado: ${code}`);
     return;
   }
 
-  if (scanTargetMode === 'inv-barcode') {
-    const barEl = document.getElementById('i-barcode');
-    if (barEl) barEl.value = code;
-    showToast(`Código asignado: ${code}`);
-    return;
-  }
-
-  // Modo Documento: Busca en el inventario por IMEI, Serie Única (SN) o Código de Barras
+  // Modo Venta/Documento: Busca por IMEI, por Código Serie (SKU) o por ID
   const prod = inventory.find(i => 
-    (i.imei && i.imei.trim().toLowerCase() === code.toLowerCase()) ||
-    (i.serial && i.serial.trim().toLowerCase() === code.toLowerCase()) ||
-    (i.barcode && i.barcode.trim().toLowerCase() === code.toLowerCase()) ||
+    (i.barcode && i.barcode.trim() === code) || 
+    (i.sku && i.sku.trim().toUpperCase() === code.toUpperCase()) || 
     i.id === code
   );
 
@@ -183,9 +171,9 @@ function onBarcodeScanned(code) {
       currentItems.push({ 
         id: prod.id, 
         name: prod.name, 
-        serial: prod.serial || '',
-        imei: prod.imei || '',
-        warranty: prod.warranty || 'Sin garantía',
+        barcode: prod.barcode || '', 
+        sku: prod.sku || '', 
+        warranty: prod.warranty || '30 Días',
         cost: prod.cost, 
         price: prod.price, 
         qty: 1 
@@ -193,9 +181,9 @@ function onBarcodeScanned(code) {
     }
     renderDocItems();
     calcDoc();
-    showToast(`+1 ${prod.name} (IMEI: ${prod.imei || prod.serial})`);
+    showToast(`+1 ${prod.name}`);
   } else {
-    showToast(`Equipo o código no encontrado: ${code}`);
+    showToast(`IMEI no registrado: ${code}`);
   }
 }
 
@@ -315,11 +303,7 @@ async function loadCloudData() {
       });
     }
 
-    getRef('inventory').onSnapshot(snap => { 
-      inventory = snap.docs.map(d => ({id: d.id, ...d.data()})); 
-      updateAllViews(); 
-      updateSelects(); 
-    });
+    getRef('inventory').onSnapshot(snap => { inventory = snap.docs.map(d => ({id: d.id, ...d.data()})); updateAllViews(); updateSelects(); });
     getRef('clients').onSnapshot(snap => { clients = snap.docs.map(d => ({id: d.id, ...d.data()})); renderClients(); updateSelects(); });
     getRef('documents').onSnapshot(snap => { 
       documents = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.timestamp||0) - (a.timestamp||0)); 
@@ -342,7 +326,10 @@ async function loadCloudData() {
       if(setBizAddr) setBizAddr.value = settings.address||''; 
     }
 
-    if (!editInvId) clearInvForm();
+    if (!document.getElementById('i-sku')?.value) {
+      document.getElementById('i-sku').value = generateUniqueSKU();
+    }
+
     showView('view-app');
   } catch (err) {
     console.error("Error al cargar datos en la nube:", err);
@@ -468,27 +455,25 @@ function openKardexModal() {
   document.getElementById('modal-kardex').classList.add('active');
 }
 
-// INVENTARIO CON IMEI, SERIE ÚNICA Y GARANTÍA
 function saveInv() { 
   const n = document.getElementById('i-name').value.trim();
-  const serial = document.getElementById('i-serial')?.value.trim() || generateUniqueSerial();
-  const imei = document.getElementById('i-imei')?.value.trim() || '';
   const barcode = document.getElementById('i-barcode')?.value.trim() || '';
-  const warranty = document.getElementById('i-warranty')?.value || 'Sin garantía';
+  let sku = document.getElementById('i-sku')?.value.trim();
+  if (!sku) sku = generateUniqueSKU();
+  const warranty = document.getElementById('i-warranty')?.value || '30 Días';
   const c = parseFloat(document.getElementById('i-cost').value) || 0;
   const p = parseFloat(document.getElementById('i-price').value) || 0;
   const s = parseInt(document.getElementById('i-stock').value) || 0;
   const margin = parseFloat(document.getElementById('i-margin').value) || 0;
   const f = document.getElementById('i-img').files[0]; 
   
-  if(!n) return showToast("Escribe el nombre o modelo del equipo"); 
+  if(!n) return showToast("Escribe el nombre del producto"); 
   
   const cb = async (imgData) => { 
     const data = { 
       name: n, 
-      serial: serial,
-      imei: imei,
       barcode: barcode, 
+      sku: sku,
       warranty: warranty,
       cost: c, 
       price: p, 
@@ -496,12 +481,11 @@ function saveInv() {
       stock: s, 
       img: imgData 
     };
-
-    let change = s, desc = `Inventario inicial (${serial})`;
+    let change = s, desc = "Inventario inicial";
     if(editInvId) { 
       const oldProd = inventory.find(i => i.id === editInvId);
       change = s - (oldProd ? oldProd.stock : 0); 
-      desc = `Ajuste manual (${serial})`;
+      desc = "Ajuste manual de almacén";
       await getRef('inventory').doc(editInvId).update(data); 
       logMovement(editInvId, n, change, s, desc);
     } else { 
@@ -509,21 +493,20 @@ function saveInv() {
       logMovement(newDoc.id, n, change, s, desc); 
     } 
     clearInvForm(); 
-    showToast("Equipo / Producto Guardado"); 
+    showToast("Producto Guardado"); 
   }; 
   if(f) compressImage(f, cb); else cb(editInvId ? inventory.find(i=>i.id===editInvId).img : null); 
 }
 
-function delInv(id) { if(confirm("¿Eliminar este producto/equipo del almacén?")) getRef('inventory').doc(id).delete(); }
+function delInv(id) { if(confirm("¿Eliminar este producto del almacén?")) getRef('inventory').doc(id).delete(); }
 
 function editInv(id) { 
   const i = inventory.find(x => x.id === id); 
   if(!i) return; 
   document.getElementById('i-name').value = i.name; 
-  document.getElementById('i-serial').value = i.serial || generateUniqueSerial();
-  document.getElementById('i-imei').value = i.imei || '';
-  document.getElementById('i-barcode').value = i.barcode || '';
-  document.getElementById('i-warranty').value = i.warranty || '30 días';
+  const barEl = document.getElementById('i-barcode'); if (barEl) barEl.value = i.barcode || '';
+  const skuEl = document.getElementById('i-sku'); if (skuEl) skuEl.value = i.sku || generateUniqueSKU();
+  const warEl = document.getElementById('i-warranty'); if (warEl) warEl.value = i.warranty || '30 Días';
   document.getElementById('i-cost').value = i.cost; 
   document.getElementById('i-price').value = i.price; 
   document.getElementById('i-stock').value = i.stock; 
@@ -540,17 +523,16 @@ function editInv(id) {
   }
 
   editInvId = id; 
-  document.getElementById('inv-form-title').innerText = "Editar Equipo / Producto"; 
+  document.getElementById('inv-form-title').innerText = "Editar Producto / Equipo"; 
   document.getElementById('btn-save-inv').innerText = "Actualizar"; 
   window.scrollTo(0,0); 
 }
 
 function clearInvForm() { 
   document.getElementById('i-name').value = ''; 
-  document.getElementById('i-serial').value = generateUniqueSerial();
-  document.getElementById('i-imei').value = '';
-  document.getElementById('i-barcode').value = '';
-  document.getElementById('i-warranty').value = '30 días';
+  const barEl = document.getElementById('i-barcode'); if (barEl) barEl.value = '';
+  const skuEl = document.getElementById('i-sku'); if (skuEl) skuEl.value = generateUniqueSKU();
+  const warEl = document.getElementById('i-warranty'); if (warEl) warEl.value = '30 Días';
   document.getElementById('i-cost').value = '0'; 
   document.getElementById('i-price').value = '0'; 
   document.getElementById('i-margin').value = '30';
@@ -567,9 +549,8 @@ function renderInv() {
   const q = (document.getElementById('search-inv')?.value || '').toLowerCase();
   const filtered = inventory.filter(i => 
     i.name.toLowerCase().includes(q) || 
-    (i.imei && i.imei.toLowerCase().includes(q)) ||
-    (i.serial && i.serial.toLowerCase().includes(q)) ||
-    (i.barcode && i.barcode.toLowerCase().includes(q))
+    (i.barcode && i.barcode.toLowerCase().includes(q)) ||
+    (i.sku && i.sku.toLowerCase().includes(q))
   );
   el.innerHTML = filtered.map(i => {
     const profitMargin = i.cost > 0 ? Math.round(((i.price - i.cost) / i.cost) * 100) : 0;
@@ -579,12 +560,10 @@ function renderInv() {
         ${i.img ? `<img src="${i.img}" class="prod-img">` : '<div class="prod-img"></div>'}
         <div>
           <strong>${i.name}</strong> 
-          <span class="badge ncf">${i.serial || 'S/N'}</span>
-          ${i.imei ? `<span class="badge ncf" style="color:var(--accent);">IMEI: ${i.imei}</span>` : ''}
-          ${i.stock <= 3 ? `<span class="badge low-stock">¡Bajo Stock: ${i.stock}!</span>` : ''}<br>
-          <small style="color:var(--muted);">
-            Costo: ${fMoney(i.cost)} | Venta: <strong style="color:var(--text);">${fMoney(i.price)}</strong> (+${profitMargin}%) | Garantía: <strong>${i.warranty || '30 días'}</strong> | Stock: ${i.stock}
-          </small>
+          ${i.sku ? `<span class="badge ncf" style="color:var(--accent);">Serie: ${i.sku}</span>` : ''}
+          ${i.barcode ? `<span class="badge ncf">IMEI: ${i.barcode}</span>` : ''} 
+          ${i.stock <= 3 ? `<span class="badge low-stock">¡Stock: ${i.stock}!</span>` : ''}<br>
+          <small style="color:var(--muted);">Garantía: <strong>${i.warranty || '30 Días'}</strong> | Costo: ${fMoney(i.cost)} | Venta: <strong style="color:var(--text);">${fMoney(i.price)}</strong> (+${profitMargin}%) | Stock: ${i.stock}</small>
         </div>
       </div>
       <div style="display:flex; gap:5px;">
@@ -592,7 +571,7 @@ function renderInv() {
         <button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delInv('${i.id}')">✖</button>
       </div>
     </div>`;
-  }).join('') || '<p style="color:var(--muted); font-size:13px; text-align:center;">No se encontraron equipos o productos.</p>'; 
+  }).join('') || '<p style="color:var(--muted); font-size:13px; text-align:center;">No se encontraron productos o equipos.</p>'; 
 }
 
 function closeModal(id) { 
@@ -665,10 +644,11 @@ function updateSelects() {
 
   const ps = document.getElementById('doc-product-select');
   if (ps) {
-    ps.innerHTML = '<option value="">-- Elige un producto / equipo --</option>' +
+    ps.innerHTML = '<option value="">-- Elige un producto por Nombre o IMEI --</option>' +
       inventory.map(i => {
-        const extraId = i.imei ? `[IMEI: ${i.imei}]` : `[${i.serial || 'S/N'}]`;
-        return `<option value="${i.id}">${i.name} ${extraId} — ${fMoney(i.price)} (Stock: ${i.stock})</option>`;
+        const imeiTag = i.barcode ? ` [IMEI: ${i.barcode}]` : '';
+        const serieTag = i.sku ? ` [${i.sku}]` : '';
+        return `<option value="${i.id}">${i.name}${imeiTag}${serieTag} — ${fMoney(i.price)} (Disp: ${i.stock})</option>`;
       }).join('');
   }
 }
@@ -716,7 +696,7 @@ function toggleReceivableStatus(id, stat) { getRef('receivables').doc(id).update
 function delReceivable(id) { getRef('receivables').doc(id).delete(); }
 function renderReceivables() { 
   const el = document.getElementById('receivables-list'); 
-  if(el) el.innerHTML = receivables.map(r => `<div class="item-row"><div><strong>${r.concept}</strong><br><small style="color:var(--muted);">${r.date ? 'Vence: '+r.date : 'Sin fecha'} | ${fMoney(r.amount)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="width:auto; margin:0; font-size:11px; padding:4px;" onchange="toggleReceivableStatus('${r.id}', this.value)"><option value="Pendiente" ${p.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${p.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delReceivable('${r.id}')">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cobros manuales.</p>'; 
+  if(el) el.innerHTML = receivables.map(r => `<div class="item-row"><div><strong>${r.concept}</strong><br><small style="color:var(--muted);">${r.date ? 'Vence: '+r.date : 'Sin fecha'} | ${fMoney(r.amount)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="width:auto; margin:0; font-size:11px; padding:4px;" onchange="toggleReceivableStatus('${r.id}', this.value)"><option value="Pendiente" ${r.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${r.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delReceivable('${r.id}')">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cobros manuales.</p>'; 
 }
 
 function handleNcfChange() {
@@ -759,9 +739,9 @@ function startFromProd(type, prodId) {
     currentItems = [{
       id: p.id, 
       name: p.name, 
-      serial: p.serial || '',
-      imei: p.imei || '',
-      warranty: p.warranty || 'Sin garantía',
+      barcode: p.barcode || '', 
+      sku: p.sku || '', 
+      warranty: p.warranty || '30 Días',
       cost: p.cost, 
       price: p.price, 
       qty: 1
@@ -789,15 +769,15 @@ function addDocItem() {
   const idEl = document.getElementById('doc-product-select'), qtyEl = document.getElementById('doc-qty'); 
   if(!idEl || !qtyEl) return; 
   const id = idEl.value, qty = parseFloat(qtyEl.value); 
-  if(!id || isNaN(qty) || qty <= 0) return showToast("Selecciona un equipo/producto y cantidad válida"); 
+  if(!id || isNaN(qty) || qty <= 0) return showToast("Selecciona un producto y cantidad válida"); 
   const prod = inventory.find(i => i.id === id); 
   if(prod) { 
     currentItems.push({
       id: prod.id, 
       name: prod.name, 
-      serial: prod.serial || '',
-      imei: prod.imei || '',
-      warranty: prod.warranty || 'Sin garantía',
+      barcode: prod.barcode || '', 
+      sku: prod.sku || '', 
+      warranty: prod.warranty || '30 Días',
       cost: prod.cost, 
       price: prod.price, 
       qty
@@ -813,20 +793,21 @@ function delDocItem(idx) { currentItems.splice(idx,1); renderDocItems(); calcDoc
 
 function renderDocItems() { 
   const el = document.getElementById('doc-items-list'); 
-  if(!el) return;
-  el.innerHTML = currentItems.map((item, idx) => {
-    const detailParts = [];
-    if (item.serial) detailParts.push(`SN: ${item.serial}`);
-    if (item.imei) detailParts.push(`IMEI: ${item.imei}`);
-    if (item.warranty && item.warranty !== 'Sin garantía') detailParts.push(`Garantía: ${item.warranty}`);
-    const detailStr = detailParts.length ? `<br><small style="color:var(--muted);">${detailParts.join(' | ')}</small>` : '';
-
-    return `
-    <div class="item-row">
-      <span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong>${detailStr}</span>
-      <div>${fMoney(item.price * item.qty)} <button style="background:none;border:none;color:var(--danger);margin-left:10px;cursor:pointer;" onclick="delDocItem(${idx})">✖</button></div>
-    </div>`;
-  }).join(''); 
+  if(el) el.innerHTML = currentItems.map((item, idx) => `
+    <div class="item-row" style="flex-wrap:wrap;">
+      <div>
+        <span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><br>
+        <small style="color:var(--muted);">
+          ${item.sku ? `Serie: <strong>${item.sku}</strong> | ` : ''}
+          ${item.barcode ? `IMEI: <strong>${item.barcode}</strong> | ` : ''}
+          Garantía: ${item.warranty || '30 Días'}
+        </small>
+      </div>
+      <div>
+        ${fMoney(item.price * item.qty)} 
+        <button style="background:none;border:none;color:var(--danger);margin-left:10px;cursor:pointer;" onclick="delDocItem(${idx})">✖</button>
+      </div>
+    </div>`).join(''); 
 }
 
 function calcDoc() {
@@ -1072,7 +1053,6 @@ async function delDoc(id) {
   showToast("Documento eliminado y stock restaurado");
 }
 
-// ABONOS PARCIALES Y RECIBOS INDIVIDUALES
 function openAbonoModal(docId) {
   currentAbonoDocId = docId;
   renderAbonoModalData();
@@ -1116,4 +1096,731 @@ function renderAbonoModalData() {
           ${['Dueño', 'Administrador'].includes(currentUserRole) ? `<button class="btn-small" style="background:var(--danger); color:#fff; border:none;" onclick="delAbono(${idx})">✖</button>` : ''}
         </div>
       </div>
-    `).join('') || '<p style="font-size:12px; color:var(--muted); text-align:center;">No
+    `).join('') || '<p style="font-size:12px; color:var(--muted); text-align:center;">No hay abonos registrados en esta factura.</p>';
+  }
+}
+
+async function saveAbono() {
+  const d = documents.find(x => x.id === currentAbonoDocId);
+  if(!d) return;
+  const amount = parseFloat(document.getElementById('ab-amount')?.value);
+  const method = document.getElementById('ab-method')?.value || 'Efectivo';
+  const note = document.getElementById('ab-note')?.value.trim() || '';
+  const balance = getDocBalance(d);
+
+  if(isNaN(amount) || amount <= 0) return showToast("Ingresa un monto válido");
+  if(amount > balance + 0.05) return showToast("El abono supera el balance pendiente");
+
+  const payments = Array.isArray(d.payments) ? [...d.payments] : [];
+  payments.push({
+    amount: Math.min(amount, balance),
+    method,
+    note,
+    date: new Date().toLocaleDateString('es-DO'),
+    timestamp: Date.now()
+  });
+
+  const newPaid = payments.reduce((s, p) => s + (Number(p.amount)||0), 0);
+  const newStatus = (newPaid >= d.totals.total - 0.01) ? 'Pagada' : 'Crédito';
+
+  await getRef('documents').doc(d.id).update({
+    payments,
+    paidAmount: newPaid,
+    status: newStatus
+  });
+
+  showToast(newStatus === 'Pagada' ? "¡Factura saldada en su totalidad!" : "Abono registrado correctamente");
+}
+
+async function delAbono(idx) {
+  const d = documents.find(x => x.id === currentAbonoDocId);
+  if(!d || !Array.isArray(d.payments)) return;
+  if(!confirm("¿Eliminar este registro de pago?")) return;
+
+  const payments = [...d.payments];
+  payments.splice(idx, 1);
+  const newPaid = payments.reduce((s, p) => s + (Number(p.amount)||0), 0);
+  const newStatus = (newPaid >= d.totals.total - 0.01) ? 'Pagada' : 'Crédito';
+
+  await getRef('documents').doc(d.id).update({
+    payments,
+    paidAmount: newPaid,
+    status: newStatus
+  });
+  showToast("Pago eliminado");
+}
+
+function printReceiptAbonoPOS(docId, paymentIdx) {
+  const d = documents.find(x => x.id === docId);
+  if (!d || !d.payments || !d.payments[paymentIdx]) return;
+  const p = d.payments[paymentIdx];
+  const cur = d.totals.currency || 'DOP';
+  const bizName = settings.name || 'MI NEGOCIO';
+  const bizRnc = settings.id ? `RNC: ${settings.id}<br>` : '';
+  const total = d.totals.total || 0;
+  const totalPaid = getDocPaid(d);
+  const balance = getDocBalance(d);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        @page { size: 80mm auto; margin: 0; }
+        body { width: 74mm; margin: 0 auto; padding: 8px 4px; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; line-height: 1.3; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 6px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="center">
+        <div style="font-size:16px; font-weight:bold;">${bizName}</div>
+        ${bizRnc}
+        <div class="bold" style="font-size:13px; margin-top:4px;">RECIBO DE INGRESO / ABONO</div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <strong>Recibo No:</strong> REC-${p.timestamp ? String(p.timestamp).slice(-6) : (paymentIdx+1)}<br>
+        <strong>Factura Ref:</strong> ${d.num} ${d.ncf ? `(${d.ncf})` : ''}<br>
+        <strong>Fecha:</strong> ${p.date}<br>
+        <strong>Cliente:</strong> ${d.client.name}<br>
+        ${d.client.rnc ? `<strong>RNC/Céd:</strong> ${d.client.rnc}<br>` : ''}
+        <strong>Método:</strong> ${p.method}
+        ${p.note ? `<br><strong>Nota:</strong> ${p.note}` : ''}
+      </div>
+      <div class="divider"></div>
+      <table>
+        <tr style="font-size:14px; font-weight:bold;">
+          <td>MONTO ABONADO:</td>
+          <td class="right">${fMoney(p.amount, cur)}</td>
+        </tr>
+      </table>
+      <div class="divider"></div>
+      <table>
+        <tr><td>Total Factura:</td><td class="right">${fMoney(total, cur)}</td></tr>
+        <tr><td>Total Acumulado Pagado:</td><td class="right">${fMoney(totalPaid, cur)}</td></tr>
+        <tr class="bold"><td>BALANCE RESTANTE:</td><td class="right">${fMoney(balance, cur)}</td></tr>
+      </table>
+      <div class="divider"></div>
+      <div class="center" style="margin-top:14px; font-size:11px;">
+        ___________________________<br>
+        Firma Cobrador / Cajero<br><br>
+        ¡Gracias por su pago!<br>
+        Generado por Cifra Cloud
+      </div>
+    </body>
+    </html>
+  `;
+  triggerThermalPrint(html);
+}
+
+function shareAbonoWhatsApp(docId, paymentIdx) {
+  const d = documents.find(x => x.id === docId);
+  if (!d || !d.payments || !d.payments[paymentIdx]) return;
+  const p = d.payments[paymentIdx];
+  const cur = d.totals.currency || 'DOP';
+  const bizName = settings.name || 'Nuestro Negocio';
+  const bal = getDocBalance(d);
+
+  const msg = `Hola *${d.client.name}*, confirmamos la recepción de tu pago:%0A%0A` +
+    `*Recibo de Abono* a Factura: *${d.num}*%0A` +
+    (d.ncf ? `*NCF:* ${d.ncf}%0A` : '') +
+    `*Fecha:* ${p.date}%0A` +
+    `*Vía:* ${p.method}%0A` +
+    `*MONTO ABONADO:* *${fMoney(p.amount, cur)}*%0A` +
+    (bal > 0.01 ? `*BALANCE RESTANTE:* *${fMoney(bal, cur)}*%0A%0A` : `*ESTADO:* *¡FACTURA TOTALMENTE SALDADA! 🎉*%0A%0A`) +
+    `¡Gracias por tu pago! — *${bizName}*`;
+
+  let phone = (d.client.phone || '').replace(/\D/g, '');
+  if (phone.length === 10 && ['809', '829', '849'].includes(phone.substring(0, 3))) {
+    phone = '1' + phone;
+  }
+  const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+  window.open(url, '_blank');
+}
+
+function printPOS(id) {
+  const d = documents.find(x => x.id === id);
+  if(!d) return;
+  const cur = d.totals.currency || 'DOP';
+  const bizName = settings.name || 'MI NEGOCIO';
+  const bizRnc = settings.id ? `RNC: ${settings.id}<br>` : '';
+  const bizAddr = settings.address ? `${settings.address}<br>` : '';
+  const docTitle = d.type === 'Factura' && d.ncfType && NCF_LABELS[d.ncfType] ? NCF_LABELS[d.ncfType] : d.type;
+  const paid = getDocPaid(d);
+  const balance = getDocBalance(d);
+
+  const itemsRows = d.items.map(i => {
+    const imeiLine = (i.barcode || i.sku) ? `<br><small style="font-size:10px;">${i.sku ? 'Serie:'+i.sku+' ' : ''}${i.barcode ? 'IMEI:'+i.barcode : ''} [Gar: ${i.warranty || '30 Días'}]</small>` : '';
+    return `
+      <tr>
+        <td colspan="3" style="padding-top:4px; font-weight:bold;">${i.name}${imeiLine}</td>
+      </tr>
+      <tr>
+        <td>${i.qty} x ${fMoney(i.price, cur)}</td>
+        <td></td>
+        <td style="text-align:right;">${fMoney(i.price * i.qty, cur)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const laborRow = d.totals.labor > 0 ? `
+    <tr><td colspan="3" style="padding-top:4px; font-weight:bold;">Mano de Obra / Servicio</td></tr>
+    <tr><td>1 x ${fMoney(d.totals.labor, cur)}</td><td></td><td style="text-align:right;">${fMoney(d.totals.labor, cur)}</td></tr>
+  ` : '';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        @page { size: 80mm auto; margin: 0; }
+        body { width: 74mm; margin: 0 auto; padding: 8px 4px; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; line-height: 1.3; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 6px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="center">
+        <div style="font-size:16px; font-weight:bold;">${bizName}</div>
+        ${bizRnc}${bizAddr}
+      </div>
+      <div class="divider"></div>
+      <div class="center bold" style="font-size:13px;">${docTitle.toUpperCase()}</div>
+      <div>
+        <strong>No:</strong> ${d.num}<br>
+        ${d.ncf ? `<strong>NCF:</strong> ${d.ncf}<br>` : ''}
+        <strong>Fecha:</strong> ${d.date}<br>
+        <strong>Cliente:</strong> ${d.client.name}<br>
+        ${d.client.rnc ? `<strong>RNC/Céd:</strong> ${d.client.rnc}<br>` : ''}
+        <strong>Condición:</strong> ${d.paymentMethod || 'Contado'} (${d.status})
+      </div>
+      <div class="divider"></div>
+      <table>
+        <thead>
+          <tr style="border-bottom:1px dashed #000;">
+            <th style="text-align:left;">Cant x Precio</th>
+            <th></th>
+            <th style="text-align:right;">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRows}
+          ${laborRow}
+        </tbody>
+      </table>
+      <div class="divider"></div>
+      <table>
+        <tr><td>Subtotal:</td><td class="right">${fMoney(d.totals.subtotal, cur)}</td></tr>
+        ${d.totals.discAmt > 0 ? `<tr><td>Descuento:</td><td class="right">-${fMoney(d.totals.discAmt, cur)}</td></tr>` : ''}
+        <tr><td>ITBIS (${d.totals.taxPct}%):</td><td class="right">${fMoney(d.totals.taxAmt, cur)}</td></tr>
+        <tr style="font-size:14px; font-weight:bold;"><td style="padding-top:4px;">TOTAL:</td><td class="right" style="padding-top:4px;">${fMoney(d.totals.total, cur)}</td></tr>
+        ${d.type === 'Factura' ? `
+          <tr><td style="padding-top:4px;">Pagado / Abonado:</td><td class="right" style="padding-top:4px;">${fMoney(paid, cur)}</td></tr>
+          ${balance > 0.01 ? `<tr style="font-weight:bold;"><td>BALANCE PENDIENTE:</td><td class="right">${fMoney(balance, cur)}</td></tr>` : ''}
+        ` : ''}
+      </table>
+      <div class="divider"></div>
+      <div class="center" style="margin-top:8px; font-size:11px;">
+        Garantía válida con este comprobante.<br>
+        ¡Gracias por preferirnos!<br>
+        Generado por Cifra Cloud
+      </div>
+    </body>
+    </html>
+  `;
+  triggerThermalPrint(html);
+}
+
+function triggerThermalPrint(htmlContent) {
+  const iframe = document.getElementById('pos-print-frame');
+  if(!iframe) return;
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
+  setTimeout(() => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  }, 250);
+}
+
+function isSameDay(ts, refDate) {
+  if(!ts) return false;
+  const d = new Date(ts);
+  return d.getDate() === refDate.getDate() && d.getMonth() === refDate.getMonth() && d.getFullYear() === refDate.getFullYear();
+}
+
+function openCuadreModal() {
+  const now = new Date();
+  const targetCurrency = document.getElementById('currency')?.value || 'DOP';
+  const targetRate = exchangeRates[targetCurrency] || 1;
+  let cash = 0, transfer = 0, card = 0;
+  let txs = [];
+
+  documents.forEach(d => {
+    if (d.type !== 'Factura') return;
+    const docRate = d.totals?.exchangeRate || 1;
+
+    if (Array.isArray(d.payments) && d.payments.length > 0) {
+      d.payments.forEach(p => {
+        if (isSameDay(p.timestamp, now)) {
+          const val = ((Number(p.amount) || 0) / docRate) * targetRate;
+          if (p.method === 'Efectivo') cash += val;
+          else if (p.method === 'Transferencia') transfer += val;
+          else if (p.method === 'Tarjeta') card += val;
+          txs.push({ num: d.num, client: d.client.name, method: p.method, amount: val, note: p.note || 'Cobro', time: new Date(p.timestamp).toLocaleTimeString('es-DO', {hour:'2-digit', minute:'2-digit'}) });
+        }
+      });
+    } else if (d.status === 'Pagada' && isSameDay(d.timestamp, now)) {
+      const val = ((d.totals?.total || 0) / docRate) * targetRate;
+      const m = d.paymentMethod || 'Efectivo';
+      if (m === 'Efectivo') cash += val;
+      else if (m === 'Transferencia') transfer += val;
+      else if (m === 'Tarjeta') card += val;
+      txs.push({ num: d.num, client: d.client.name, method: m, amount: val, note: 'Pago al facturar', time: new Date(d.timestamp).toLocaleTimeString('es-DO', {hour:'2-digit', minute:'2-digit'}) });
+    }
+  });
+
+  const total = cash + transfer + card;
+  lastCuadreData = { cash, transfer, card, total, txs };
+
+  document.getElementById('cuadre-date-label').innerText = `Cierre del día: ${now.toLocaleDateString('es-DO', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}`;
+  document.getElementById('cuadre-cash').innerText = fMoney(cash);
+  document.getElementById('cuadre-transfer').innerText = fMoney(transfer);
+  document.getElementById('cuadre-card').innerText = fMoney(card);
+  document.getElementById('cuadre-total').innerText = fMoney(total);
+
+  const txListEl = document.getElementById('cuadre-tx-list');
+  if(txListEl) {
+    txListEl.innerHTML = txs.map(t => `
+      <div class="item-row" style="padding:8px 10px;">
+        <div><strong>${t.num} — ${t.client}</strong><br><small style="color:var(--muted);">${t.time} • ${t.note}</small></div>
+        <div style="text-align:right;"><span class="badge ncf">${t.method}</span><br><strong style="color:var(--accent);">${fMoney(t.amount)}</strong></div>
+      </div>
+    `).join('') || '<p style="font-size:12px; color:var(--muted); text-align:center;">No se han registrado cobros en el día de hoy.</p>';
+  }
+
+  calcArqueo();
+  document.getElementById('modal-cuadre').classList.add('active');
+}
+
+function calcArqueo() {
+  const base = parseFloat(document.getElementById('cuadre-base')?.value) || 0;
+  const counted = parseFloat(document.getElementById('cuadre-counted')?.value) || 0;
+  const expected = base + lastCuadreData.cash;
+  const diff = counted - expected;
+
+  const expEl = document.getElementById('cuadre-expected');
+  const diffEl = document.getElementById('cuadre-diff-label');
+  if(expEl) expEl.innerText = fMoney(expected);
+  if(diffEl) {
+    if (Math.abs(diff) < 0.01) {
+      diffEl.innerText = "✅ Cuadre Exacto";
+      diffEl.style.color = "var(--accent)";
+    } else if (diff > 0) {
+      diffEl.innerText = `➕ Sobrante: ${fMoney(diff)}`;
+      diffEl.style.color = "var(--info)";
+    } else {
+      diffEl.innerText = `⚠️ Faltante: ${fMoney(Math.abs(diff))}`;
+      diffEl.style.color = "var(--danger)";
+    }
+  }
+}
+
+function printCuadrePOS() {
+  const base = parseFloat(document.getElementById('cuadre-base')?.value) || 0;
+  const counted = parseFloat(document.getElementById('cuadre-counted')?.value) || 0;
+  const expected = base + lastCuadreData.cash;
+  const diff = counted - expected;
+  const bizName = settings.name || 'MI NEGOCIO';
+  const nowStr = new Date().toLocaleString('es-DO');
+
+  const txRows = lastCuadreData.txs.map(t => `
+    <tr>
+      <td>${t.num} (${t.method.slice(0,5)})</td>
+      <td style="text-align:right;">${fMoney(t.amount)}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        @page { size: 80mm auto; margin: 0; }
+        body { width: 74mm; margin: 0 auto; padding: 8px 4px; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; line-height: 1.3; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 6px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="center">
+        <div style="font-size:15px; font-weight:bold;">${bizName}</div>
+        <div class="bold">CIERRE / CUADRE DE CAJA</div>
+        <div>${nowStr}</div>
+        <div>Resp: ${ document.getElementById('user-display')?.innerText || '' }</div>
+      </div>
+      <div class="divider"></div>
+      <table>
+        <tr><td>Efectivo Cobrado:</td><td class="right">${fMoney(lastCuadreData.cash)}</td></tr>
+        <tr><td>Transferencias:</td><td class="right">${fMoney(lastCuadreData.transfer)}</td></tr>
+        <tr><td>Tarjetas:</td><td class="right">${fMoney(lastCuadreData.card)}</td></tr>
+        <tr class="bold" style="font-size:13px;"><td style="padding-top:4px;">TOTAL COBRADO:</td><td class="right" style="padding-top:4px;">${fMoney(lastCuadreData.total)}</td></tr>
+      </table>
+      <div class="divider"></div>
+      <div class="bold">ARQUEO DE GAVETA:</div>
+      <table>
+        <tr><td>Fondo Base:</td><td class="right">${fMoney(base)}</td></tr>
+        <tr><td>Efectivo Esperado:</td><td class="right">${fMoney(expected)}</td></tr>
+        <tr><td>Efectivo Contado:</td><td class="right">${fMoney(counted)}</td></tr>
+        <tr class="bold"><td>Diferencia:</td><td class="right">${fMoney(diff)}</td></tr>
+      </table>
+      <div class="divider"></div>
+      <div class="bold">MOVIMIENTOS DEL DÍA (${lastCuadreData.txs.length}):</div>
+      <table>${txRows}</table>
+      <div class="divider"></div>
+      <div class="center" style="margin-top:18px;">
+        ___________________________<br>
+        Firma Responsable
+      </div>
+    </body>
+    </html>
+  `;
+  triggerThermalPrint(html);
+}
+
+function shareWhatsApp(id) {
+  const d = documents.find(x => x.id === id);
+  if(!d) return;
+  const cur = d.totals.currency || 'DOP';
+  const bizName = settings.name || 'Nuestro Negocio';
+  const itemsText = d.items.map(i => {
+    const imei = i.barcode ? ` [IMEI: ${i.barcode}]` : '';
+    const war = i.warranty ? ` (Garantía: ${i.warranty})` : '';
+    return `• ${i.qty}x ${i.name}${imei}${war} (${fMoney(i.price * i.qty, cur)})`;
+  }).join('%0A');
+  const ncfLine = d.ncf ? `*NCF:* ${d.ncf} (${NCF_LABELS[d.ncfType] || d.ncfType})%0A` : '';
+  const paid = getDocPaid(d);
+  const bal = getDocBalance(d);
+  const balanceBlock = (d.type === 'Factura' && bal > 0.01) 
+    ? `*Abonado:* ${fMoney(paid, cur)}%0A*BALANCE PENDIENTE:* *${fMoney(bal, cur)}*%0A` 
+    : '';
+  
+  const msg = `Hola *${d.client.name}*, te compartimos el resumen de tu *${d.type} ${d.num}* de *${bizName}*:%0A%0A` +
+    ncfLine +
+    `*Fecha:* ${d.date}%0A` +
+    (d.type === 'Factura' ? `*Estado:* ${d.status}%0A` : '') +
+    `%0A*Equipos / Artículos:*%0A${itemsText}%0A%0A` +
+    `*ITBIS:* ${fMoney(d.totals.taxAmt, cur)}%0A` +
+    `*TOTAL:* *${fMoney(d.totals.total, cur)}*%0A` +
+    balanceBlock +
+    `%0A¡Garantía válida con este comprobante! Gracias por tu compra.`;
+
+  let phone = (d.client.phone || '').replace(/\D/g, '');
+  if (phone.length === 10 && ['809', '829', '849'].includes(phone.substring(0, 3))) {
+    phone = '1' + phone;
+  }
+  const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+  window.open(url, '_blank');
+}
+
+function renderDocList(type, containerId, searchInputId) {
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const q = (document.getElementById(searchInputId)?.value || '').toLowerCase();
+  const filtered = documents.filter(d => d.type === type && (
+    d.client.name.toLowerCase().includes(q) ||
+    d.num.toLowerCase().includes(q) ||
+    (d.ncf && d.ncf.toLowerCase().includes(q)) ||
+    (d.client.rnc && d.client.rnc.toLowerCase().includes(q)) ||
+    (Array.isArray(d.items) && d.items.some(it => 
+      (it.barcode && it.barcode.toLowerCase().includes(q)) ||
+      (it.sku && it.sku.toLowerCase().includes(q))
+    ))
+  ));
+
+  container.innerHTML = filtered.map(d => {
+    const cur = d.totals.currency || 'DOP';
+    const bal = getDocBalance(d);
+    const paid = getDocPaid(d);
+    return `
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span class="badge ${d.type.toLowerCase()}">${d.num}</span>
+          ${d.ncf ? `<span class="badge ncf">${d.ncf}</span>` : ''}
+          ${d.type==='Factura' ? `<select style="width:auto; margin:0; padding:3px 6px; font-size:11px;" onchange="changeStatus('${d.id}', this.value)"><option value="Sin Pagar" ${d.status==='Sin Pagar'?'selected':''}>Sin Pagar</option><option value="Crédito" ${d.status==='Crédito'?'selected':''}>Crédito</option><option value="Pendiente" ${d.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagada" ${d.status==='Pagada'?'selected':''}>Pagada</option></select>` : ''}
+        </div>
+        <div style="text-align:right;">
+          <strong style="color:var(--accent); font-size:16px;">${fMoney(d.totals.total, cur)}</strong>
+          ${d.type==='Factura' && bal > 0.01 ? `<br><span class="badge pending-bal">Resta: ${fMoney(bal, cur)}</span>` : ''}
+        </div>
+      </div>
+      <div>
+        <strong>${d.client.name}</strong> ${d.client.rnc ? `<small style="color:var(--muted);">(${d.client.rnc})</small>` : ''}
+        <br><small style="color:var(--muted);">Fecha: ${d.date} ${d.dueDate ? '| Vence: '+d.dueDate : ''} ${d.type==='Factura' && paid > 0 && bal > 0.01 ? `| Abonado: ${fMoney(paid, cur)}` : ''}</small>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;">
+        ${d.type==='Factura' ? `<button class="btn btn-abono btn-small" onclick="openAbonoModal('${d.id}')">💵 ${bal > 0.01 ? 'Abonar' : 'Pagos'}</button>` : ''}
+        <button class="btn btn-pos btn-small" onclick="printPOS('${d.id}')">🖨️ Ticket 80mm</button>
+        <button class="btn btn-outline btn-small" onclick="genPDF('${d.id}')">📄 PDF</button>
+        <button class="btn btn-whatsapp btn-small" onclick="shareWhatsApp('${d.id}')">📲 WhatsApp</button>
+        <button class="btn btn-outline btn-small" onclick="editDoc('${d.id}')">✏️</button>
+        ${currentUserRole === 'Dueño' ? `<button class="btn btn-small" style="background:transparent;border:1px solid var(--danger);color:var(--danger);" onclick="delDoc('${d.id}')">✖</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--muted); text-align:center; grid-column: span 2;">No se encontraron documentos.</p>';
+}
+
+function renderQuotes() { renderDocList('Cotización', 'quote-list', 'search-quotes'); } 
+function renderInvoices() { renderDocList('Factura', 'invoice-list', 'search-invoices'); }
+
+function filterByDate(docsArray) {
+  const filter = document.getElementById('dash-filter')?.value || 'month';
+  if (filter === 'all') return docsArray; 
+  const now = new Date();
+  return docsArray.filter(d => {
+    const dateObj = d.timestamp ? new Date(d.timestamp) : new Date(d.date); 
+    if (isNaN(dateObj)) return true; 
+    if (filter === 'today') return dateObj.getDate() === now.getDate() && dateObj.getMonth() === now.getMonth() && dateObj.getFullYear() === now.getFullYear();
+    if (filter === 'month') return dateObj.getMonth() === now.getMonth() && dateObj.getFullYear() === now.getFullYear();
+    if (filter === 'year') return dateObj.getFullYear() === now.getFullYear(); 
+    return true;
+  });
+}
+
+function renderDashboard() {
+  const targetCurrency = document.getElementById('currency').value; 
+  const targetRate = exchangeRates[targetCurrency] || 1;
+  let fTot = 0, arTot = 0, invCount = 0; 
+  const filteredDocs = filterByDate(documents); 
+  const filteredReceivables = filterByDate(receivables);
+
+  filteredDocs.forEach(d => { 
+    if(d.type === 'Factura') {
+      invCount++;
+      const docRate = d.totals.exchangeRate || 1; 
+      const paidVal = (getDocPaid(d) / docRate) * targetRate;
+      const balVal = (getDocBalance(d) / docRate) * targetRate;
+      fTot += paidVal; 
+      arTot += balVal;
+    }
+  });
+  filteredReceivables.filter(r => r.status === 'Pendiente').forEach(r => arTot += r.amount); 
+  
+  const lowStockCount = inventory.filter(i => i.stock <= 3).length;
+
+  const invTotEl = document.getElementById('dash-inv-total'), quoTotEl = document.getElementById('dash-quo-total'), docCountEl = document.getElementById('dash-doc-count'), lowStockEl = document.getElementById('dash-low-stock'), invCardsEl = document.getElementById('dash-inv-cards');
+  if(invTotEl) invTotEl.innerText = fMoney(fTot); 
+  if(quoTotEl) quoTotEl.innerText = fMoney(arTot);
+  if(docCountEl) docCountEl.innerText = invCount;
+  if(lowStockEl) lowStockEl.innerText = lowStockCount;
+
+  if(invCardsEl) invCardsEl.innerHTML = inventory.map(i => `
+    <div class="prod-card">
+      ${i.img ? `<img src="${i.img}">` : `<div style="width:100%;height:85px;background:var(--bg);border-radius:8px;margin-bottom:8px;"></div>`}
+      <h4>${i.name}</h4>
+      <p>
+        ${i.barcode ? `<small style="font-size:10px; color:var(--accent);">IMEI: ${i.barcode}</small><br>` : ''}
+        ${fMoney(i.price)}<br>
+        <span style="color:${i.stock<=3?'var(--danger)':'var(--muted)'}">Stock: ${i.stock}</span>
+      </p>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="startFromProd('Cotización', '${i.id}')">Cotizar</button>
+        <button class="btn btn-primary" onclick="startFromProd('Factura', '${i.id}')">Facturar</button>
+      </div>
+    </div>`).join('') || '<p style="font-size:12px; color:var(--muted);">Agrega equipos al inventario para facturación rápida.</p>';
+}
+
+function renderAccounting() {
+  const targetCurrency = document.getElementById('currency').value; 
+  const targetRate = exchangeRates[targetCurrency] || 1;
+  let prof = 0, taxes = 0, invNet = 0, ar = 0, ap = 0;
+  const filteredDocs = filterByDate(documents); 
+  const filteredReceivables = filterByDate(receivables); 
+  const filteredPayables = filterByDate(payables);
+
+  filteredDocs.forEach(d => {
+    if(d.type === 'Factura') {
+      const docRate = d.totals.exchangeRate || 1; 
+      const total = d.totals.total || 1;
+      const paidRatio = Math.min(1, getDocPaid(d) / total);
+      const localProfit = ((d.totals.profit || 0) / docRate) * targetRate; 
+      const localTax = ((d.totals.taxAmt || 0) / docRate) * targetRate; 
+      const localBal = (getDocBalance(d) / docRate) * targetRate;
+
+      prof += localProfit * paidRatio;
+      taxes += localTax * paidRatio;
+      ar += localBal;
+    }
+  });
+  filteredReceivables.filter(r => r.status === 'Pendiente').forEach(r => ar += r.amount); 
+  filteredPayables.filter(p => p.status === 'Pendiente').forEach(p => ap += p.amount); 
+  inventory.forEach(i => invNet += (i.cost * i.stock));
+  
+  const accProf = document.getElementById('acc-profit'), accTax = document.getElementById('acc-tax'), accInvVal = document.getElementById('acc-inv-value'), accAr = document.getElementById('acc-ar'), accAp = document.getElementById('acc-ap');
+  if(accProf) accProf.innerText = fMoney(prof); 
+  if(accTax) accTax.innerText = fMoney(taxes); 
+  if(accInvVal) accInvVal.innerText = fMoney(invNet); 
+  if(accAr) accAr.innerText = fMoney(ar); 
+  if(accAp) accAp.innerText = fMoney(ap);
+}
+
+function exportSalesCSV() {
+  const invs = filterByDate(documents).filter(d => d.type === 'Factura');
+  if (invs.length === 0) return showToast("No hay facturas en este periodo para exportar");
+
+  const headers = ['Fecha', 'No. Factura', 'Tipo NCF', 'NCF', 'Cliente', 'RNC / Cedula', 'Estado', 'Moneda', 'Subtotal', 'Descuento', 'ITBIS', 'Total Facturado', 'Monto Cobrado', 'Balance Pendiente'];
+  const rows = invs.map(d => [
+    d.date,
+    d.num,
+    d.ncfType || 'Interna',
+    d.ncf || 'N/A',
+    `"${(d.client.name || '').replace(/"/g, '""')}"`,
+    d.client.rnc || '',
+    d.status,
+    d.totals.currency || 'DOP',
+    (d.totals.subtotal || 0).toFixed(2),
+    (d.totals.discAmt || 0).toFixed(2),
+    (d.totals.taxAmt || 0).toFixed(2),
+    (d.totals.total || 0).toFixed(2),
+    getDocPaid(d).toFixed(2),
+    getDocBalance(d).toFixed(2)
+  ]);
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `Reporte_Ventas_607_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  showToast("Reporte descargado (Compatible con Excel)");
+}
+
+function handleLogoUpload(e) { 
+  const r = new FileReader(); 
+  r.onload = evt => { settings.logo = evt.target.result; saveSettings(true); }; 
+  r.readAsDataURL(e.target.files[0]); 
+}
+
+async function saveSettings(silent=false) { 
+  settings.color = document.getElementById('set-color')?.value || '#111827'; 
+  settings.font = document.getElementById('set-font')?.value || 'Helvetica'; 
+  settings.tplInv = document.getElementById('set-inv-tpl')?.value || 'modern'; 
+  settings.name = document.getElementById('set-biz-name')?.value || ''; 
+  settings.id = document.getElementById('set-biz-id')?.value || ''; 
+  settings.address = document.getElementById('set-biz-address')?.value || ''; 
+  await getRef('config').doc('settings').set(settings); 
+  if(!silent) showToast("Configuración Nube Guardada"); 
+}
+
+function genPDF(id) {
+  const d = documents.find(x => x.id === id); 
+  if(!d) return; 
+  showToast("Generando PDF..."); 
+  const cur = d.totals.currency || 'DOP'; 
+  const w = document.getElementById('pdf-wrapper'), c = document.getElementById('pdf-container'), h = document.getElementById('pdf-header'); 
+  if(!w || !c || !h) return;
+  c.style.fontFamily = settings.font || 'Helvetica';
+
+  const pdfType = document.getElementById('pdf-type'), pdfTotalRow = document.getElementById('pdf-total-row'), pdfLogoImg = document.getElementById('pdf-logo-img'), pdfBizName = document.getElementById('pdf-biz-name'), pdfBizMeta = document.getElementById('pdf-biz-meta'), pdfMeta = document.getElementById('pdf-meta'), pdfCliName = document.getElementById('pdf-cli-name'), pdfCliMeta = document.getElementById('pdf-cli-meta'), pdfStatusStamp = document.getElementById('pdf-status-stamp'), pdfTableBody = document.getElementById('pdf-table-body'), pdfSub = document.getElementById('pdf-sub'), pdfDisc = document.getElementById('pdf-disc'), pdfRowDisc = document.getElementById('pdf-row-disc'), pdfTax = document.getElementById('pdf-tax'), pdfRowTax = document.getElementById('pdf-row-tax'), pdfTotal = document.getElementById('pdf-total'), pdfTotalLabel = document.getElementById('pdf-total-label');
+  const pdfRowPaid = document.getElementById('pdf-row-paid'), pdfPaid = document.getElementById('pdf-paid'), pdfRowBal = document.getElementById('pdf-row-balance'), pdfBal = document.getElementById('pdf-balance');
+
+  if(settings.tplInv === 'modern') { 
+    h.style.background = settings.color || '#111827'; h.style.color = '#fff'; h.style.borderBottom = 'none'; 
+    if(pdfType) pdfType.style.color = '#fff'; if(pdfTotalRow) pdfTotalRow.style.color = settings.color || '#111827'; 
+  } else { 
+    h.style.background = 'transparent'; h.style.color = '#000'; h.style.borderBottom = `4px solid ${settings.color || '#111827'}`; 
+    if(pdfType) pdfType.style.color = settings.color || '#111827'; if(pdfTotalRow) pdfTotalRow.style.color = settings.color || '#111827'; 
+  }
+
+  if(pdfLogoImg) { pdfLogoImg.src = settings.logo || ''; pdfLogoImg.style.display = settings.logo ? 'block' : 'none'; }
+  if(pdfBizName) pdfBizName.innerText = settings.name || ''; 
+  if(pdfBizMeta) pdfBizMeta.innerHTML = `${settings.id ? '<strong>RNC:</strong> '+settings.id+'<br>' : ''}${settings.address || ''}`;
+  
+  const docTitle = d.type === 'Factura' && d.ncfType && NCF_LABELS[d.ncfType] ? NCF_LABELS[d.ncfType] : d.type;
+  if(pdfType) pdfType.innerText = docTitle; 
+  if(pdfMeta) pdfMeta.innerHTML = `<strong>Nº Interno:</strong> ${d.num}${d.ncf ? `<br><strong>NCF:</strong> ${d.ncf}` : ''}<br><strong>Fecha:</strong> ${d.date}${d.dueDate?'<br><strong>Vence:</strong> '+d.dueDate:''}${d.paymentMethod ? '<br><strong>Condición:</strong> '+d.paymentMethod : ''}`;
+  
+  if(pdfCliName) pdfCliName.innerText = d.client.name; 
+  if(pdfCliMeta) pdfCliMeta.innerHTML = `${d.client.rnc?'<strong>RNC/Cédula:</strong> '+d.client.rnc+'<br>':''}${d.client.phone ? 'Tel: '+d.client.phone+'<br>' : ''}${d.client.email || ''}`;
+  
+  const bal = getDocBalance(d);
+  const paid = getDocPaid(d);
+  if(pdfStatusStamp) { 
+    if(d.type==='Factura' && d.status==='Pagada') pdfStatusStamp.innerHTML = '<h2 style="color:#22c55e;border:4px solid #22c55e;padding:8px 14px;transform:rotate(-12deg);display:inline-block;border-radius:6px;">PAGADA</h2>'; 
+    else if(d.type==='Factura' && bal > 0.01) pdfStatusStamp.innerHTML = '<h2 style="color:#d97706;border:4px solid #d97706;padding:8px 14px;transform:rotate(-12deg);display:inline-block;border-radius:6px;">PENDIENTE</h2>';
+    else pdfStatusStamp.innerHTML = ''; 
+  }
+  
+  let table = d.items.map(i => {
+    const imeiLine = (i.barcode || i.sku) ? `<br><small style="color:#4b5563; font-size:11px;">${i.sku ? 'Serie: <strong>'+i.sku+'</strong> | ' : ''}${i.barcode ? 'IMEI: <strong>'+i.barcode+'</strong> | ' : ''}Garantía: ${i.warranty || '30 Días'}</small>` : '';
+    return `<tr>
+      <td><strong>${i.name}</strong>${imeiLine}</td>
+      <td style="text-align:center;">${i.qty}</td>
+      <td style="text-align:right;">${fMoney(i.price, cur)}</td>
+      <td style="text-align:right;">${fMoney(i.price * i.qty, cur)}</td>
+    </tr>`;
+  }).join('');
+
+  if(d.totals.labor > 0) table += `<tr><td>Servicios / Mano de Obra</td><td style="text-align:center;">1</td><td style="text-align:right;">${fMoney(d.totals.labor, cur)}</td><td style="text-align:right;">${fMoney(d.totals.labor, cur)}</td></tr>`;
+  if(pdfTableBody) pdfTableBody.innerHTML = table;
+  
+  if(pdfSub) pdfSub.innerText = fMoney(d.totals.subtotal, cur); 
+  if(pdfDisc) pdfDisc.innerText = `-${fMoney(d.totals.discAmt, cur)}`; 
+  if(pdfRowDisc) pdfRowDisc.style.display = d.totals.discAmt>0?'flex':'none'; 
+  if(pdfTax) pdfTax.innerText = `+${fMoney(d.totals.taxAmt, cur)}`; 
+  if(pdfRowTax) pdfRowTax.style.display = d.totals.taxAmt>0?'flex':'none'; 
+  if(pdfTotal) pdfTotal.innerText = fMoney(d.totals.total, cur); 
+  if(pdfTotalLabel) pdfTotalLabel.innerText = d.type==='Factura'?'Total Facturado:':'Total Cotizado:';
+
+  if(d.type === 'Factura' && bal > 0.01) {
+    if(pdfRowPaid) pdfRowPaid.style.display = 'flex';
+    if(pdfPaid) pdfPaid.innerText = fMoney(paid, cur);
+    if(pdfRowBal) pdfRowBal.style.display = 'flex';
+    if(pdfBal) pdfBal.innerText = fMoney(bal, cur);
+  } else {
+    if(pdfRowPaid) pdfRowPaid.style.display = 'none';
+    if(pdfRowBal) pdfRowBal.style.display = 'none';
+  }
+  
+  w.style.display = 'block'; 
+  html2pdf().set({ 
+    margin: 0, 
+    filename: `${d.num}${d.ncf ? '_' + d.ncf : ''}.pdf`, 
+    image: {type:'jpeg', quality:1}, 
+    html2canvas: {scale:2}, 
+    jsPDF: {unit:'in', format:'letter', orientation:'portrait'} 
+  }).from(c).save().then(() => { 
+    w.style.display = 'none'; 
+    showToast("¡PDF Descargado!"); 
+  });
+}
+
+function toggleSlideMode(containerId, btn) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const isVertical = el.classList.contains('slide-y');
+  if (isVertical) {
+    el.classList.remove('slide-y');
+    el.classList.add('slide-x');
+    if (btn) btn.innerText = '↕️ Slide Vertical';
+  } else {
+    el.classList.remove('slide-x');
+    el.classList.add('slide-y');
+    if (btn) btn.innerText = '↔️ Slide Horizontal';
+  }
+}
