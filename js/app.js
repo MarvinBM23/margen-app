@@ -32,6 +32,104 @@ const NCF_LABELS = {
   'Interna': 'Factura Comercial'
 };
 
+// =========================================================
+// MÓDULO DE VALIDACIONES ESTRICTAS DOMINICANAS
+// =========================================================
+function sanitizeDigitsOnly(input) {
+  input.value = input.value.replace(/\D/g, '');
+}
+
+function sanitizePositiveInt(input) {
+  let val = input.value.replace(/\D/g, '');
+  input.value = val === '' ? '' : Math.max(1, parseInt(val, 10));
+}
+
+function sanitizeName(input) {
+  input.value = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\.\-]/g, '');
+}
+
+function formatPhoneInput(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 10);
+  if (v.length > 6) {
+    input.value = `${v.slice(0, 3)}-${v.slice(3, 6)}-${v.slice(6)}`;
+  } else if (v.length > 3) {
+    input.value = `${v.slice(0, 3)}-${v.slice(3)}`;
+  } else {
+    input.value = v;
+  }
+}
+
+function isValidDominicanPhone(phoneStr) {
+  const digits = (phoneStr || '').replace(/\D/g, '');
+  if (digits.length !== 10) return false;
+  const prefix = digits.slice(0, 3);
+  return ['809', '829', '849'].includes(prefix);
+}
+
+function formatRNCInput(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9) {
+    // Formato Cédula: 000-0000000-0
+    input.value = `${v.slice(0, 3)}-${v.slice(3, 10)}-${v.slice(10)}`;
+  } else if (v.length > 3) {
+    // Formato RNC Jurídico: 0-00-00000-0
+    if (v.length <= 8) {
+      input.value = `${v.slice(0, 1)}-${v.slice(1, 3)}-${v.slice(3)}`;
+    } else {
+      input.value = `${v.slice(0, 1)}-${v.slice(1, 3)}-${v.slice(3, 8)}-${v.slice(8)}`;
+    }
+  } else {
+    input.value = v;
+  }
+}
+
+function validateCedulaMod10(cedula) {
+  const c = cedula.replace(/\D/g, '');
+  if (c.length !== 11) return false;
+  const mod10Weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2];
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    let calc = parseInt(c.charAt(i), 10) * mod10Weights[i];
+    if (calc >= 10) calc = Math.floor(calc / 10) + (calc % 10);
+    sum += calc;
+  }
+  const verifier = (10 - (sum % 10)) % 10;
+  return verifier === parseInt(c.charAt(10), 10);
+}
+
+function validateRncMod11(rnc) {
+  const r = rnc.replace(/\D/g, '');
+  if (r.length !== 9) return false;
+  const weights = [7, 9, 8, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 8; i++) {
+    sum += parseInt(r.charAt(i), 10) * weights[i];
+  }
+  const remainder = sum % 11;
+  let verifier = 0;
+  if (remainder === 0) verifier = 2;
+  else if (remainder === 1) verifier = 1;
+  else verifier = 11 - remainder;
+  return verifier === parseInt(r.charAt(8), 10);
+}
+
+function isValidDominicanIdOrRNC(val) {
+  const clean = (val || '').replace(/\D/g, '');
+  if (clean.length === 11) return validateCedulaMod10(clean);
+  if (clean.length === 9) return validateRncMod11(clean);
+  return false;
+}
+
+// GENERADOR AUTOMÁTICO DE CÓDIGO SERIE ÚNICO DE PRODUCTO (SKU/UID)
+function generateUniqueSKU() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 6; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `CIF-${rand}`;
+}
+
 async function fetchRates() {
   try {
     const res = await fetch('https://open.er-api.com/v6/latest/USD');
@@ -72,16 +170,6 @@ function getDocBalance(d) {
   return Math.max(0, total - getDocPaid(d));
 }
 
-// GENERADOR AUTOMÁTICO DE CÓDIGO SERIE ÚNICO DE PRODUCTO (SKU/UID)
-function generateUniqueSKU() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let rand = '';
-  for (let i = 0; i < 6; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `CIF-${rand}`;
-}
-
 // CÁLCULO DE MARGEN Y PRECIO
 function calcPriceFromMargin() {
   const cost = parseFloat(document.getElementById('i-cost')?.value) || 0;
@@ -104,9 +192,7 @@ function calcMarginFromPrice() {
   }
 }
 
-// =========================================================
-// ESCÁNER DE CÓDIGO DE BARRAS / IMEI POR CÁMARA
-// =========================================================
+// ESCÁNER DE CÓDIGO DE BARRAS / IMEI
 function startBarcodeScan(mode = 'doc') {
   scanTargetMode = mode;
   const modal = document.getElementById('modal-scanner');
@@ -156,7 +242,6 @@ function onBarcodeScanned(code) {
     return;
   }
 
-  // Modo Venta/Documento: Busca por IMEI, por Código Serie (SKU) o por ID
   const prod = inventory.find(i => 
     (i.barcode && i.barcode.trim() === code) || 
     (i.sku && i.sku.trim().toUpperCase() === code.toUpperCase()) || 
@@ -213,7 +298,11 @@ async function register() {
   if(!eEl || !pEl || !nEl || !locEl) return;
   const e = eEl.value.trim(), p = pEl.value, n = nEl.value.trim(), ph = phEl ? phEl.value.trim() : '', id = idEl ? idEl.value.trim() : '', dob = dobEl ? dobEl.value : '', loc = locEl.value.trim();
 
-  if(!e || !p || !n || !loc) return showToast("Faltan datos (Incluye Nombre del Negocio)");
+  if(!e || !p || !n || !loc) return showToast("Faltan datos obligatorios");
+  if(n.length < 3) return showToast("El nombre debe tener al menos 3 caracteres");
+  if(id && !isValidDominicanIdOrRNC(id)) return showToast("La Cédula o RNC ingresado no es válido en RD");
+  if(ph && !isValidDominicanPhone(ph)) return showToast("El teléfono debe tener formato dominicano válido (809/829/849)");
+
   try {
     isRegistering = true;
     showView('view-loading'); 
@@ -461,13 +550,23 @@ function saveInv() {
   let sku = document.getElementById('i-sku')?.value.trim();
   if (!sku) sku = generateUniqueSKU();
   const warranty = document.getElementById('i-warranty')?.value || '30 Días';
-  const c = parseFloat(document.getElementById('i-cost').value) || 0;
-  const p = parseFloat(document.getElementById('i-price').value) || 0;
-  const s = parseInt(document.getElementById('i-stock').value) || 0;
+  const c = parseFloat(document.getElementById('i-cost').value);
+  const p = parseFloat(document.getElementById('i-price').value);
+  const s = parseInt(document.getElementById('i-stock').value);
   const margin = parseFloat(document.getElementById('i-margin').value) || 0;
   const f = document.getElementById('i-img').files[0]; 
   
-  if(!n) return showToast("Escribe el nombre del producto"); 
+  if(!n) return showToast("El nombre del equipo/producto es obligatorio"); 
+  if(isNaN(c) || c < 0) return showToast("El costo debe ser un valor positivo");
+  if(isNaN(p) || p <= 0) return showToast("El precio de venta debe ser mayor a cero");
+  if(isNaN(s) || s < 0) return showToast("La existencia debe ser un número entero válido");
+  if(barcode && barcode.length < 8) return showToast("El IMEI/Código debe contener al menos 8 dígitos");
+
+  // Validar unicidad de IMEI en el inventario
+  const duplicate = inventory.find(i => i.barcode && i.barcode === barcode && i.id !== editInvId);
+  if(barcode && duplicate) {
+    return showToast(`¡Error! El IMEI ${barcode} ya está asignado a: ${duplicate.name}`);
+  }
   
   const cb = async (imgData) => { 
     const data = { 
@@ -493,7 +592,7 @@ function saveInv() {
       logMovement(newDoc.id, n, change, s, desc); 
     } 
     clearInvForm(); 
-    showToast("Producto Guardado"); 
+    showToast("Producto / Equipo Guardado con éxito"); 
   }; 
   if(f) compressImage(f, cb); else cb(editInvId ? inventory.find(i=>i.id===editInvId).img : null); 
 }
@@ -611,11 +710,18 @@ function openClientProfile(id) {
 }
 
 function saveClient() { 
-  const n = document.getElementById('c-name').value.trim(), e = document.getElementById('c-email').value.trim(), a = document.getElementById('c-address').value.trim(), rnc = document.getElementById('c-rnc').value.trim(); 
-  if(!n) return showToast("Ingresa el nombre del cliente"); 
+  const n = document.getElementById('c-name').value.trim();
+  const e = document.getElementById('c-email').value.trim();
+  const a = document.getElementById('c-address').value.trim();
+  const rnc = document.getElementById('c-rnc').value.trim(); 
+  
+  if(!n || n.length < 3) return showToast("Ingresa un nombre válido de cliente (Mínimo 3 letras)");
+  if(rnc && !isValidDominicanIdOrRNC(rnc)) return showToast("El RNC o Cédula dominicana ingresada es inválida");
+  if(a && !isValidDominicanPhone(a)) return showToast("El teléfono debe tener un prefijo dominicano válido (809/829/849)");
+
   getRef('clients').add({name:n, email:e, address:a, rnc: rnc, timestamp: Date.now()}); 
   document.getElementById('c-name').value=''; document.getElementById('c-email').value=''; document.getElementById('c-address').value=''; document.getElementById('c-rnc').value=''; 
-  showToast("Cliente Guardado"); 
+  showToast("Cliente registrado correctamente"); 
 }
 
 function delClient(id) { if(confirm("¿Eliminar este cliente?")) getRef('clients').doc(id).delete(); }
@@ -672,11 +778,13 @@ function onSelectClientChange() {
 }
 
 function savePayable() { 
-  const c = document.getElementById('p-concept').value.trim(), a = parseFloat(document.getElementById('p-amount').value), d = document.getElementById('p-date').value; 
-  if(!c || isNaN(a) || a<=0) return; 
+  const c = document.getElementById('p-concept').value.trim();
+  const a = parseFloat(document.getElementById('p-amount').value);
+  const d = document.getElementById('p-date').value; 
+  if(!c || isNaN(a) || a<=0) return showToast("Ingresa un concepto y un monto válido"); 
   getRef('payables').add({concept: c, amount: a, date: d, status: 'Pendiente', timestamp: Date.now()}); 
   document.getElementById('p-concept').value=''; document.getElementById('p-amount').value='0'; 
-  showToast("Registrado"); 
+  showToast("Compromiso Registrado"); 
 }
 function togglePayableStatus(id, stat) { getRef('payables').doc(id).update({status: stat}); }
 function delPayable(id) { getRef('payables').doc(id).delete(); }
@@ -686,11 +794,13 @@ function renderPayables() {
 }
 
 function saveReceivable() { 
-  const c = document.getElementById('r-concept').value.trim(), a = parseFloat(document.getElementById('r-amount').value), d = document.getElementById('r-date').value; 
-  if(!c || isNaN(a) || a<=0) return; 
+  const c = document.getElementById('r-concept').value.trim();
+  const a = parseFloat(document.getElementById('r-amount').value);
+  const d = document.getElementById('r-date').value; 
+  if(!c || isNaN(a) || a<=0) return showToast("Ingresa un deudor y un monto válido"); 
   getRef('receivables').add({concept: c, amount: a, date: d, status: 'Pendiente', timestamp: Date.now()}); 
   document.getElementById('r-concept').value=''; document.getElementById('r-amount').value='0'; 
-  showToast("Guardado"); 
+  showToast("Cuenta por Cobrar Guardada"); 
 }
 function toggleReceivableStatus(id, stat) { getRef('receivables').doc(id).update({status: stat}); }
 function delReceivable(id) { getRef('receivables').doc(id).delete(); }
@@ -814,10 +924,10 @@ function calcDoc() {
   const subtotal = currentItems.reduce((s, i) => s + (i.price * i.qty), 0);
   const totalCost = currentItems.reduce((s, i) => s + (i.cost * i.qty), 0);
   const taxEl = document.getElementById('doc-tax'), discEl = document.getElementById('doc-disc'), hoursEl = document.getElementById('doc-hours'), rateEl = document.getElementById('doc-rate');
-  const taxPct = taxEl ? parseFloat(taxEl.value)||0 : 0; 
-  const discPct = discEl ? parseFloat(discEl.value)||0 : 0;
+  const taxPct = taxEl ? Math.max(0, parseFloat(taxEl.value)||0) : 0; 
+  const discPct = discEl ? Math.min(100, Math.max(0, parseFloat(discEl.value)||0)) : 0;
   let total = subtotal, labor = 0; 
-  if(hoursEl && rateEl) labor = (parseFloat(hoursEl.value)||0) * (parseFloat(rateEl.value)||0); 
+  if(hoursEl && rateEl) labor = Math.max(0, (parseFloat(hoursEl.value)||0)) * Math.max(0, (parseFloat(rateEl.value)||0)); 
   total += labor; 
   const discAmt = total * (discPct/100); 
   total -= discAmt; 
@@ -875,8 +985,14 @@ async function saveDoc(isConverting = false) {
 
   const ncfType = document.getElementById('doc-ncf-type')?.value || 'B02';
   const rncVal = document.getElementById('doc-client-rnc')?.value.trim() || '';
-  if (type === 'Factura' && ['B01', 'B14', 'B15'].includes(ncfType) && !rncVal) {
-    return showToast(`El comprobante ${ncfType} exige el RNC/Cédula del cliente`);
+  if (type === 'Factura' && ['B01', 'B14', 'B15'].includes(ncfType)) {
+    if (!rncVal) return showToast(`El comprobante ${ncfType} exige el RNC/Cédula del cliente`);
+    if (!isValidDominicanIdOrRNC(rncVal)) return showToast("El RNC/Cédula ingresado es inválido según DGII");
+  }
+
+  const phoneVal = document.getElementById('doc-client-phone')?.value.trim() || '';
+  if (phoneVal && !isValidDominicanPhone(phoneVal)) {
+    return showToast("El teléfono del cliente debe tener un formato dominicano válido");
   }
 
   const oldDoc = editDocId ? documents.find(d => d.id === editDocId) : null; 
@@ -927,7 +1043,6 @@ async function saveDoc(isConverting = false) {
   const pm = document.getElementById('doc-payment')?.value || 'Efectivo'; 
   const dueDate = document.getElementById('doc-due-date')?.value || '';
   const emailVal = document.getElementById('doc-client-email')?.value.trim() || '';
-  const phoneVal = document.getElementById('doc-client-phone')?.value.trim() || '';
   const nowStr = new Date().toLocaleDateString('es-DO');
 
   let finalStatus = 'Activa';
@@ -1717,11 +1832,17 @@ function handleLogoUpload(e) {
 }
 
 async function saveSettings(silent=false) { 
+  const bizName = document.getElementById('set-biz-name')?.value || '';
+  const rnc = document.getElementById('set-biz-id')?.value.trim() || '';
+  if (rnc && !isValidDominicanIdOrRNC(rnc)) {
+    return showToast("El RNC del negocio no es válido según DGII");
+  }
+
   settings.color = document.getElementById('set-color')?.value || '#111827'; 
   settings.font = document.getElementById('set-font')?.value || 'Helvetica'; 
   settings.tplInv = document.getElementById('set-inv-tpl')?.value || 'modern'; 
-  settings.name = document.getElementById('set-biz-name')?.value || ''; 
-  settings.id = document.getElementById('set-biz-id')?.value || ''; 
+  settings.name = bizName; 
+  settings.id = rnc; 
   settings.address = document.getElementById('set-biz-address')?.value || ''; 
   await getRef('config').doc('settings').set(settings); 
   if(!silent) showToast("Configuración Nube Guardada"); 
