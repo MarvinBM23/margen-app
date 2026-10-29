@@ -22,7 +22,12 @@ let currentItems = [], docTotals = {}, editDocId = null, editInvId = null, curre
 let currentAbonoDocId = null, lastCuadreData = { cash: 0, transfer: 0, card: 0, total: 0, txs: [] };
 let exchangeRates = { USD: 1, DOP: 58.5, EUR: 0.92 };
 let isRegistering = false;
-let html5QrScanner = null, scanTargetMode = 'doc';
+
+// Variables de control del escáner
+let html5QrScanner = null;
+let isScannerStarting = false;
+let isScannerRunning = false;
+let scanTargetMode = 'doc';
 
 const NCF_LABELS = {
   'B01': 'Factura de Crédito Fiscal',
@@ -189,77 +194,66 @@ function calcMarginFromPrice() {
 }
 
 // =========================================================
-// ESCÁNER UNIVERSAL (SERIES S/N, IMEI, SKU Y CÓDIGOS 1D/2D)
+// ESCÁNER ULTRA-COMPATIBLE CON CIERRE GARANTIZADO
 // =========================================================
-function startBarcodeScan(mode = 'doc') {
+async function startBarcodeScan(mode = 'doc') {
   scanTargetMode = mode;
   const modal = document.getElementById('modal-scanner');
   if (modal) modal.classList.add('active');
   const statusEl = document.getElementById('scanner-status');
-  if (statusEl) {
-    statusEl.innerText = mode === 'inv' 
-      ? "Apunta al número de serie (S/N) o código del equipo..." 
-      : "Apunta al serial / código para agregarlo a la venta...";
-  }
+  if (statusEl) statusEl.innerText = "Accediendo a la cámara...";
 
-  if (html5QrScanner) {
-    try {
-      html5QrScanner.stop().then(() => { html5QrScanner.clear(); }).catch(() => {});
-    } catch(e) {}
-  }
+  // Si ya había una instancia previa, limpiamos de forma segura
+  await forceStopScanner();
 
-  const formatsToSupport = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.CODE_93,
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E,
-    Html5QrcodeSupportedFormats.ITF,
-    Html5QrcodeSupportedFormats.DATA_MATRIX,
-    Html5QrcodeSupportedFormats.QR_CODE
-  ] : undefined;
+  try {
+    const formatsToSupport = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.ITF,
+      Html5QrcodeSupportedFormats.DATA_MATRIX,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ] : undefined;
 
-  const scannerOptions = { verbose: false };
-  if (formatsToSupport) scannerOptions.formatsToSupport = formatsToSupport;
+    html5QrScanner = new Html5Qrcode("reader", { 
+      formatsToSupport: formatsToSupport,
+      verbose: false 
+    });
 
-  html5QrScanner = new Html5Qrcode("reader", scannerOptions);
+    // Detectar cámaras disponibles
+    const devices = await Html5Qrcode.getCameras();
+    const camSelect = document.getElementById('scanner-camera-select');
+    
+    let cameraIdOrConfig = { facingMode: "environment" };
 
-  const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
-    return {
-      width: Math.floor(viewfinderWidth * 0.90),
-      height: Math.max(130, Math.floor(viewfinderHeight * 0.55))
-    };
-  };
-
-  const cameraConfig = {
-    facingMode: "environment",
-    width: { min: 640, ideal: 1280, max: 1920 },
-    height: { min: 480, ideal: 720, max: 1080 }
-  };
-
-  const scanConfig = { 
-    fps: 20, 
-    qrbox: qrboxFunction,
-    disableFlip: true,
-    experimentalFeatures: {
-      useBarCodeDetectorIfSupported: true
+    if (devices && devices.length > 0) {
+      if (camSelect) {
+        camSelect.innerHTML = devices.map((d, idx) => `<option value="${d.id}">Cámara ${idx + 1}: ${d.label || 'Dispositivo'}</option>`).join('');
+        camSelect.style.display = devices.length > 1 ? 'block' : 'none';
+      }
+      // Selecciona la trasera si existe o la primera disponible
+      const backCam = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera'));
+      cameraIdOrConfig = backCam ? backCam.id : devices[0].id;
+      if (camSelect && backCam) camSelect.value = backCam.id;
     }
-  };
 
-  html5QrScanner.start(
-    cameraConfig,
-    scanConfig,
-    (decodedText) => {
-      playBeepSound();
-      onBarcodeScanned(decodedText.trim());
-      stopBarcodeScan();
-    },
-    () => {}
-  ).catch(() => {
-    html5QrScanner.start(
-      { facingMode: "environment" },
+    const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
+      return {
+        width: Math.floor(viewfinderWidth * 0.90),
+        height: Math.max(130, Math.floor(viewfinderHeight * 0.55))
+      };
+    };
+
+    isScannerStarting = true;
+    if (statusEl) statusEl.innerText = mode === 'inv' ? "Apunta al número de serie / IMEI..." : "Apunta al código para facturar...";
+
+    await html5QrScanner.start(
+      cameraIdOrConfig,
       { fps: 15, qrbox: qrboxFunction },
       (decodedText) => {
         playBeepSound();
@@ -267,24 +261,49 @@ function startBarcodeScan(mode = 'doc') {
         stopBarcodeScan();
       },
       () => {}
-    ).catch(err => {
-      showToast("No se pudo iniciar la cámara. Concede los permisos en el navegador.");
-      stopBarcodeScan();
-    });
-  });
+    );
+
+    isScannerStarting = false;
+    isScannerRunning = true;
+
+  } catch (err) {
+    console.warn("Fallo al iniciar cámara:", err);
+    isScannerStarting = false;
+    isScannerRunning = false;
+    if (statusEl) statusEl.innerText = "No se pudo activar la cámara. Usa la opción de foto o lector USB.";
+    showToast("Permiso de cámara denegado o no disponible");
+  }
 }
 
-function stopBarcodeScan() {
+async function switchCamera(deviceId) {
+  if (!deviceId || !html5QrScanner) return;
+  await forceStopScanner();
+  startBarcodeScan(scanTargetMode);
+}
+
+async function forceStopScanner() {
   if (html5QrScanner) {
-    html5QrScanner.stop().then(() => {
-      html5QrScanner.clear();
-      html5QrScanner = null;
-    }).catch(() => { 
-      html5QrScanner = null; 
-    });
+    try {
+      if (isScannerRunning) {
+        await html5QrScanner.stop();
+      }
+      await html5QrScanner.clear();
+    } catch(e) {
+      console.log("Limpiando escáner...");
+    }
   }
+  html5QrScanner = null;
+  isScannerStarting = false;
+  isScannerRunning = false;
+}
+
+// Cierre garantizado e instantáneo
+function stopBarcodeScan() {
   const modal = document.getElementById('modal-scanner');
   if (modal) modal.classList.remove('active');
+  const readerEl = document.getElementById('reader');
+  if (readerEl) readerEl.innerHTML = '';
+  forceStopScanner();
 }
 
 function scanBarcodeFromFile(event) {
@@ -292,7 +311,7 @@ function scanBarcodeFromFile(event) {
   if (!file) return;
 
   const scanner = new Html5Qrcode("reader-hidden-file");
-  showToast("Analizando imagen...");
+  showToast("Analizando foto...");
 
   scanner.scanFile(file, true)
     .then(decodedText => {
@@ -302,7 +321,7 @@ function scanBarcodeFromFile(event) {
       scanner.clear();
     })
     .catch(() => {
-      showToast("No se detectó ningún código claro en la foto");
+      showToast("No se detectó ningún código claro en la imagen");
       scanner.clear();
     });
 }
@@ -355,7 +374,7 @@ function onBarcodeScanned(code) {
   if (scanTargetMode === 'inv') {
     const barEl = document.getElementById('i-barcode');
     if (barEl) barEl.value = cleanCode;
-    showToast(`Serial/Código asignado: ${cleanCode}`);
+    showToast(`Serial/IMEI asignado: ${cleanCode}`);
     return;
   }
 
