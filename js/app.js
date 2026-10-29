@@ -22,6 +22,7 @@ let currentItems = [], docTotals = {}, editDocId = null, editInvId = null, curre
 let currentAbonoDocId = null, lastCuadreData = { cash: 0, transfer: 0, card: 0, total: 0, txs: [] };
 let exchangeRates = { USD: 1, DOP: 58.5, EUR: 0.92 };
 let isRegistering = false;
+let html5QrScanner = null, scanTargetMode = 'doc';
 
 const NCF_LABELS = {
   'B01': 'Factura de Crédito Fiscal',
@@ -71,9 +72,7 @@ function getDocBalance(d) {
   return Math.max(0, total - getDocPaid(d));
 }
 
-// =========================================================
-// NUEVO: CÁLCULO INTELIGENTE DE MARGEN Y PRECIO EN INVENTARIO
-// =========================================================
+// CÁLCULO DE MARGEN Y PRECIO
 function calcPriceFromMargin() {
   const cost = parseFloat(document.getElementById('i-cost')?.value) || 0;
   const marginPct = parseFloat(document.getElementById('i-margin')?.value) || 0;
@@ -92,6 +91,75 @@ function calcMarginFromPrice() {
     marginEl.value = Math.round(margin);
   } else {
     marginEl.value = '0';
+  }
+}
+
+// =========================================================
+// ESCÁNER DE CÓDIGO DE BARRAS POR CÁMARA
+// =========================================================
+function startBarcodeScan(mode = 'doc') {
+  scanTargetMode = mode;
+  const modal = document.getElementById('modal-scanner');
+  if (modal) modal.classList.add('active');
+  const statusEl = document.getElementById('scanner-status');
+  if (statusEl) statusEl.innerText = mode === 'inv' ? "Escanea para asignar código al producto..." : "Escanea para añadir a la venta...";
+
+  if (html5QrScanner) {
+    html5QrScanner.clear().catch(() => {});
+  }
+
+  html5QrScanner = new Html5Qrcode("reader");
+  const config = { fps: 10, qrbox: { width: 250, height: 160 } };
+
+  html5QrScanner.start(
+    { facingMode: "environment" },
+    config,
+    (decodedText) => {
+      onBarcodeScanned(decodedText.trim());
+      stopBarcodeScan();
+    },
+    () => {}
+  ).catch(err => {
+    showToast("No se pudo iniciar la cámara: " + err);
+    stopBarcodeScan();
+  });
+}
+
+function stopBarcodeScan() {
+  if (html5QrScanner) {
+    html5QrScanner.stop().then(() => {
+      html5QrScanner.clear();
+      html5QrScanner = null;
+    }).catch(() => { html5QrScanner = null; });
+  }
+  const modal = document.getElementById('modal-scanner');
+  if (modal) modal.classList.remove('active');
+}
+
+function onBarcodeScanned(code) {
+  if (!code) return;
+
+  if (scanTargetMode === 'inv') {
+    const barEl = document.getElementById('i-barcode');
+    if (barEl) barEl.value = code;
+    showToast(`Código asignado: ${code}`);
+    return;
+  }
+
+  // Modo Documento: Busca en el inventario por código de barras exacto o por ID
+  const prod = inventory.find(i => (i.barcode && i.barcode.trim() === code) || i.id === code);
+  if (prod) {
+    const existing = currentItems.find(x => x.id === prod.id);
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      currentItems.push({ id: prod.id, name: prod.name, cost: prod.cost, price: prod.price, qty: 1 });
+    }
+    renderDocItems();
+    calcDoc();
+    showToast(`+1 ${prod.name}`);
+  } else {
+    showToast(`Código no encontrado: ${code}`);
   }
 }
 
@@ -306,7 +374,8 @@ function compressImage(file, callback) {
       const max = 250; 
       if(w > h) { if(w > max) { h *= max/w; w = max; } } 
       else { if(h > max) { w *= max/h; h = max; } } 
-      canvas.width = w; canvas.height = h; 
+      canvas.width = w; 
+      canvas.height = h; 
       ctx.drawImage(img, 0, 0, w, h); 
       callback(canvas.toDataURL('image/jpeg', 0.7)); 
     }; 
@@ -360,6 +429,7 @@ function openKardexModal() {
 
 function saveInv() { 
   const n = document.getElementById('i-name').value.trim();
+  const barcode = document.getElementById('i-barcode')?.value.trim() || '';
   const c = parseFloat(document.getElementById('i-cost').value) || 0;
   const p = parseFloat(document.getElementById('i-price').value) || 0;
   const s = parseInt(document.getElementById('i-stock').value) || 0;
@@ -369,7 +439,7 @@ function saveInv() {
   if(!n) return showToast("Escribe el nombre del producto"); 
   
   const cb = async (imgData) => { 
-    const data = { name: n, cost: c, price: p, margin: margin, stock: s, img: imgData };
+    const data = { name: n, barcode: barcode, cost: c, price: p, margin: margin, stock: s, img: imgData };
     let change = s, desc = "Inventario inicial";
     if(editInvId) { 
       const oldProd = inventory.find(i => i.id === editInvId);
@@ -393,6 +463,7 @@ function editInv(id) {
   const i = inventory.find(x => x.id === id); 
   if(!i) return; 
   document.getElementById('i-name').value = i.name; 
+  const barEl = document.getElementById('i-barcode'); if (barEl) barEl.value = i.barcode || '';
   document.getElementById('i-cost').value = i.cost; 
   document.getElementById('i-price').value = i.price; 
   document.getElementById('i-stock').value = i.stock; 
@@ -416,6 +487,7 @@ function editInv(id) {
 
 function clearInvForm() { 
   document.getElementById('i-name').value = ''; 
+  const barEl = document.getElementById('i-barcode'); if (barEl) barEl.value = '';
   document.getElementById('i-cost').value = '0'; 
   document.getElementById('i-price').value = '0'; 
   document.getElementById('i-margin').value = '30';
@@ -430,7 +502,10 @@ function renderInv() {
   const el = document.getElementById('inventory-list'); 
   if(!el) return;
   const q = (document.getElementById('search-inv')?.value || '').toLowerCase();
-  const filtered = inventory.filter(i => i.name.toLowerCase().includes(q));
+  const filtered = inventory.filter(i => 
+    i.name.toLowerCase().includes(q) || 
+    (i.barcode && i.barcode.toLowerCase().includes(q))
+  );
   el.innerHTML = filtered.map(i => {
     const profitMargin = i.cost > 0 ? Math.round(((i.price - i.cost) / i.cost) * 100) : 0;
     return `
@@ -438,7 +513,7 @@ function renderInv() {
       <div style="display:flex; gap:10px; align-items:center;">
         ${i.img ? `<img src="${i.img}" class="prod-img">` : '<div class="prod-img"></div>'}
         <div>
-          <strong>${i.name}</strong> ${i.stock <= 3 ? `<span class="badge low-stock">¡Bajo Stock: ${i.stock}!</span>` : ''}<br>
+          <strong>${i.name}</strong> ${i.barcode ? `<span class="badge ncf">#${i.barcode}</span>` : ''} ${i.stock <= 3 ? `<span class="badge low-stock">¡Bajo Stock: ${i.stock}!</span>` : ''}<br>
           <small style="color:var(--muted);">Costo: ${fMoney(i.cost)} | Venta: <strong style="color:var(--text);">${fMoney(i.price)}</strong> | Margen: <strong style="color:var(--accent);">+${profitMargin}%</strong> | Stock: ${i.stock}</small>
         </div>
       </div>
@@ -511,9 +586,6 @@ function renderClients() {
     </div>`).join('') || '<p style="color:var(--muted); font-size:13px; text-align:center;">No hay clientes registrados.</p>'; 
 }
 
-// =========================================================
-// NUEVO: ACTUALIZACIÓN DE SELECTORES DESPLEGABLES
-// =========================================================
 function updateSelects() { 
   const clientSelect = document.getElementById('doc-client-select');
   if (clientSelect) {
@@ -896,6 +968,7 @@ async function delDoc(id) {
   showToast("Documento eliminado y stock restaurado");
 }
 
+// ABONOS PARCIALES Y RECIBOS INDIVIDUALES
 function openAbonoModal(docId) {
   currentAbonoDocId = docId;
   renderAbonoModalData();
@@ -928,12 +1001,16 @@ function renderAbonoModalData() {
   const listEl = document.getElementById('ab-history-list');
   if(listEl) {
     listEl.innerHTML = payments.map((p, idx) => `
-      <div class="item-row" style="padding:8px 10px;">
+      <div class="item-row" style="padding:8px 10px; flex-wrap:wrap;">
         <div>
           <strong>${fMoney(p.amount, cur)}</strong> <span class="badge ncf">${p.method}</span><br>
           <small style="color:var(--muted);">${p.date} ${p.note ? '• ' + p.note : ''}</small>
         </div>
-        ${['Dueño', 'Administrador'].includes(currentUserRole) ? `<button class="btn-small" style="background:var(--danger); color:#fff; border:none;" onclick="delAbono(${idx})">✖</button>` : ''}
+        <div style="display:flex; gap:4px; align-items:center;">
+          <button class="btn btn-pos btn-small" title="Imprimir Recibo" onclick="printReceiptAbonoPOS('${d.id}', ${idx})">🖨️</button>
+          <button class="btn btn-whatsapp btn-small" title="Enviar WhatsApp" onclick="shareAbonoWhatsApp('${d.id}', ${idx})">📲</button>
+          ${['Dueño', 'Administrador'].includes(currentUserRole) ? `<button class="btn-small" style="background:var(--danger); color:#fff; border:none;" onclick="delAbono(${idx})">✖</button>` : ''}
+        </div>
       </div>
     `).join('') || '<p style="font-size:12px; color:var(--muted); text-align:center;">No hay abonos registrados en esta factura.</p>';
   }
@@ -987,6 +1064,101 @@ async function delAbono(idx) {
     status: newStatus
   });
   showToast("Pago eliminado");
+}
+
+// IMPRESIÓN INDIVIDUAL DE RECIBO DE ABONO (80MM)
+function printReceiptAbonoPOS(docId, paymentIdx) {
+  const d = documents.find(x => x.id === docId);
+  if (!d || !d.payments || !d.payments[paymentIdx]) return;
+  const p = d.payments[paymentIdx];
+  const cur = d.totals.currency || 'DOP';
+  const bizName = settings.name || 'MI NEGOCIO';
+  const bizRnc = settings.id ? `RNC: ${settings.id}<br>` : '';
+  const total = d.totals.total || 0;
+  const totalPaid = getDocPaid(d);
+  const balance = getDocBalance(d);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        @page { size: 80mm auto; margin: 0; }
+        body { width: 74mm; margin: 0 auto; padding: 8px 4px; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; line-height: 1.3; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 6px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="center">
+        <div style="font-size:16px; font-weight:bold;">${bizName}</div>
+        ${bizRnc}
+        <div class="bold" style="font-size:13px; margin-top:4px;">RECIBO DE INGRESO / ABONO</div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <strong>Recibo No:</strong> REC-${p.timestamp ? String(p.timestamp).slice(-6) : (paymentIdx+1)}<br>
+        <strong>Factura Ref:</strong> ${d.num} ${d.ncf ? `(${d.ncf})` : ''}<br>
+        <strong>Fecha:</strong> ${p.date}<br>
+        <strong>Cliente:</strong> ${d.client.name}<br>
+        ${d.client.rnc ? `<strong>RNC/Céd:</strong> ${d.client.rnc}<br>` : ''}
+        <strong>Método:</strong> ${p.method}
+        ${p.note ? `<br><strong>Nota:</strong> ${p.note}` : ''}
+      </div>
+      <div class="divider"></div>
+      <table>
+        <tr style="font-size:14px; font-weight:bold;">
+          <td>MONTO ABONADO:</td>
+          <td class="right">${fMoney(p.amount, cur)}</td>
+        </tr>
+      </table>
+      <div class="divider"></div>
+      <table>
+        <tr><td>Total Factura:</td><td class="right">${fMoney(total, cur)}</td></tr>
+        <tr><td>Total Acumulado Pagado:</td><td class="right">${fMoney(totalPaid, cur)}</td></tr>
+        <tr class="bold"><td>BALANCE RESTANTE:</td><td class="right">${fMoney(balance, cur)}</td></tr>
+      </table>
+      <div class="divider"></div>
+      <div class="center" style="margin-top:14px; font-size:11px;">
+        ___________________________<br>
+        Firma Cobrador / Cajero<br><br>
+        ¡Gracias por su pago!<br>
+        Generado por Cifra Cloud
+      </div>
+    </body>
+    </html>
+  `;
+  triggerThermalPrint(html);
+}
+
+// COMPARTIR ABONO POR WHATSAPP
+function shareAbonoWhatsApp(docId, paymentIdx) {
+  const d = documents.find(x => x.id === docId);
+  if (!d || !d.payments || !d.payments[paymentIdx]) return;
+  const p = d.payments[paymentIdx];
+  const cur = d.totals.currency || 'DOP';
+  const bizName = settings.name || 'Nuestro Negocio';
+  const bal = getDocBalance(d);
+
+  const msg = `Hola *${d.client.name}*, confirmamos la recepción de tu pago:%0A%0A` +
+    `*Recibo de Abono* a Factura: *${d.num}*%0A` +
+    (d.ncf ? `*NCF:* ${d.ncf}%0A` : '') +
+    `*Fecha:* ${p.date}%0A` +
+    `*Vía:* ${p.method}%0A` +
+    `*MONTO ABONADO:* *${fMoney(p.amount, cur)}*%0A` +
+    (bal > 0.01 ? `*BALANCE RESTANTE:* *${fMoney(bal, cur)}*%0A%0A` : `*ESTADO:* *¡FACTURA TOTALMENTE SALDADA! 🎉*%0A%0A`) +
+    `¡Gracias por tu pago! — *${bizName}*`;
+
+  let phone = (d.client.phone || '').replace(/\D/g, '');
+  if (phone.length === 10 && ['809', '829', '849'].includes(phone.substring(0, 3))) {
+    phone = '1' + phone;
+  }
+  const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+  window.open(url, '_blank');
 }
 
 function printPOS(id) {
