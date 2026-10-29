@@ -35,11 +35,11 @@
 
       <div id="form-register" style="display:none;">
         <div class="row">
-          <div><label>Tu Nombre</label><input type="text" id="reg-name" placeholder="Nombre completo"></div>
-          <div><label>Cédula / RNC</label><input type="text" id="reg-id" placeholder="000-0000000-0"></div>
+          <div><label>Tu Nombre</label><input type="text" id="reg-name" placeholder="Nombre completo" oninput="sanitizeName(this)"></div>
+          <div><label>Cédula / RNC</label><input type="text" id="reg-id" placeholder="000-0000000-0" oninput="formatRNCInput(this)"></div>
         </div>
         <div class="row">
-          <div><label>Teléfono</label><input type="text" id="reg-phone" placeholder="809-000-0000"></div>
+          <div><label>Teléfono</label><input type="text" id="reg-phone" placeholder="809-000-0000" oninput="formatPhoneInput(this)"></div>
           <div><label>F. Nacimiento</label><input type="date" id="reg-dob"></div>
         </div>
         <label>Nombre de tu Negocio</label>
@@ -97,22 +97,54 @@
       <button class="menu-item" style="color:var(--danger); margin-top:15px;" onclick="logout()">🚪 Cerrar Sesión</button>
     </div>
 
-    <!-- DASHBOARD -->
+    <!-- DASHBOARD / LOBBY CON ACCESOS RÁPIDOS -->
     <div id="sec-dashboard" class="app-section active">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; flex-wrap:wrap; gap:10px;">
         <div>
           <h3 style="font-size:16px; margin:0;">Resumen de Operaciones</h3>
           <small style="color:var(--muted); font-size:11px;" id="rate-info">Obteniendo tasa en vivo...</small>
         </div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select id="dash-filter" style="width:auto; margin:0; padding:8px 12px; font-size:13px;" onchange="updateAllViews()">
-            <option value="all">Todo el Historial</option>
-            <option value="today">Hoy</option>
-            <option value="month" selected>Este Mes</option>
-            <option value="year">Este Año</option>
-          </select>
-          <button class="btn btn-outline btn-small" onclick="openDocBuilder('Cotización')">+ Cotizar</button>
-          <button class="btn btn-primary btn-small" onclick="openDocBuilder('Factura')">+ Facturar</button>
+        <select id="dash-filter" style="width:auto; margin:0; padding:8px 12px; font-size:13px;" onchange="updateAllViews()">
+          <option value="all">Todo el Historial</option>
+          <option value="today">Hoy</option>
+          <option value="month" selected>Este Mes</option>
+          <option value="year">Este Año</option>
+        </select>
+      </div>
+
+      <!-- REJILLA DE ACCESOS RÁPIDOS INTERACTIVOS -->
+      <div class="quick-nav-grid">
+        <div class="quick-btn" onclick="openDocBuilder('Factura')">
+          <span class="icon">🧾</span>
+          <span class="label">+ Facturar</span>
+        </div>
+        <div class="quick-btn" onclick="openDocBuilder('Cotización')">
+          <span class="icon">📄</span>
+          <span class="label">+ Cotizar</span>
+        </div>
+        <div class="quick-btn" onclick="navTo('sec-receivables')">
+          <span class="icon">📥</span>
+          <span class="label">Por Cobrar</span>
+        </div>
+        <div class="quick-btn" onclick="navTo('sec-payables')">
+          <span class="icon">💸</span>
+          <span class="label">Por Pagar</span>
+        </div>
+        <div class="quick-btn" onclick="navTo('sec-inventory')">
+          <span class="icon">📦</span>
+          <span class="label">Inventario / IMEI</span>
+        </div>
+        <div class="quick-btn" onclick="openCuadreModal()">
+          <span class="icon">🏧</span>
+          <span class="label">Cuadre Caja</span>
+        </div>
+        <div class="quick-btn" onclick="navTo('sec-clients')">
+          <span class="icon">👥</span>
+          <span class="label">Clientes</span>
+        </div>
+        <div class="quick-btn" onclick="navTo('sec-accounting')">
+          <span class="icon">📊</span>
+          <span class="label">Reportes (607)</span>
         </div>
       </div>
 
@@ -171,11 +203,11 @@
           </select>
 
           <label>Nombre / Razón Social</label>
-          <input type="text" id="doc-client-name" placeholder="Nombre del cliente o negocio">
+          <input type="text" id="doc-client-name" placeholder="Nombre del cliente o negocio" oninput="sanitizeName(this)">
           
           <div class="row">
-            <div><label>RNC o Cédula</label><input type="text" id="doc-client-rnc" placeholder="Requerido para B01"></div>
-            <div><label>Teléfono (WhatsApp)</label><input type="text" id="doc-client-phone" placeholder="809-000-0000"></div>
+            <div><label>RNC o Cédula</label><input type="text" id="doc-client-rnc" placeholder="Requerido para B01" oninput="formatRNCInput(this)"></div>
+            <div><label>Teléfono (WhatsApp)</label><input type="text" id="doc-client-phone" placeholder="809-000-0000" oninput="formatPhoneInput(this)"></div>
           </div>
           <label>Correo Electrónico</label>
           <input type="email" id="doc-client-email" placeholder="cliente@correo.com">
@@ -192,22 +224,22 @@
                 <option value="">-- Elige un producto por Nombre o IMEI --</option>
               </select>
             </div>
-            <div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1"></div>
+            <div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1" step="1" oninput="sanitizePositiveInt(this)"></div>
           </div>
           <button class="btn btn-outline" style="padding:10px; margin-bottom:16px;" onclick="addDocItem()">+ Agregar Línea al Documento</button>
           
           <div id="doc-items-list" class="slide-y" style="margin-bottom: 16px; max-height: 220px;"></div>
           
           <div class="row">
-            <div><label>ITBIS (%)</label><input type="number" id="doc-tax" value="18" min="0" oninput="calcDoc()"></div>
-            <div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" oninput="calcDoc()"></div>
+            <div><label>ITBIS (%)</label><input type="number" id="doc-tax" value="18" min="0" step="1" oninput="calcDoc()"></div>
+            <div><label>Descuento (%)</label><input type="number" id="doc-disc" value="0" min="0" max="100" step="1" oninput="calcDoc()"></div>
           </div>
           
           <div id="div-internal-calc">
             <label>Mano de Obra / Servicio Adicional</label>
             <div class="row">
-              <div><label>Cant. Horas/Serv.</label><input type="number" id="doc-hours" value="0" oninput="calcDoc()"></div>
-              <div><label>Precio Unitario</label><input type="number" id="doc-rate" value="0" oninput="calcDoc()"></div>
+              <div><label>Cant. Horas/Serv.</label><input type="number" id="doc-hours" value="0" min="0" oninput="calcDoc()"></div>
+              <div><label>Precio Unitario</label><input type="number" id="doc-rate" value="0" min="0" step="0.01" oninput="calcDoc()"></div>
             </div>
           </div>
           
@@ -273,7 +305,7 @@
           <label>Cliente o Concepto</label>
           <input type="text" id="r-concept" placeholder="Ej. Pagaré Juan Pérez">
           <div class="row">
-            <div><label>Monto</label><input type="number" id="r-amount" value="0"></div>
+            <div><label>Monto</label><input type="number" id="r-amount" value="0" min="0" step="0.01"></div>
             <div><label>Vencimiento</label><input type="date" id="r-date"></div>
           </div>
           <button class="btn btn-primary" onclick="saveReceivable()">Guardar Cuenta</button>
@@ -296,7 +328,7 @@
           <label>Suplidor o Concepto</label>
           <input type="text" id="p-concept" placeholder="Ej. Factura Edesur / Suplidor">
           <div class="row">
-            <div><label>Monto</label><input type="number" id="p-amount" value="0"></div>
+            <div><label>Monto</label><input type="number" id="p-amount" value="0" min="0" step="0.01"></div>
             <div><label>Vencimiento</label><input type="date" id="p-date"></div>
           </div>
           <button class="btn btn-primary" onclick="savePayable()">Guardar Obligación</button>
@@ -311,7 +343,7 @@
       </div>
     </div>
 
-    <!-- INVENTARIO Y KARDEX (CON IMEI, SERIE Y GARANTÍA) -->
+    <!-- INVENTARIO Y KARDEX (CON VALIDACIONES STRICTAS) -->
     <div id="sec-inventory" class="app-section">
       <div class="split-layout">
         <div class="card">
@@ -323,7 +355,7 @@
             <label style="margin:0;">Código IMEI / Serie Física</label>
             <button class="btn btn-pos btn-small" type="button" onclick="startBarcodeScan('inv')">📷 Escanear IMEI</button>
           </div>
-          <input type="text" id="i-barcode" placeholder="Ej. 356891234567890">
+          <input type="text" id="i-barcode" placeholder="Ej. 356891234567890" oninput="sanitizeDigitsOnly(this)">
 
           <div class="row">
             <div>
@@ -347,19 +379,19 @@
           <div class="row">
             <div>
               <label>Costo de Compra</label>
-              <input type="number" id="i-cost" value="0" step="0.01" oninput="calcPriceFromMargin()">
+              <input type="number" id="i-cost" value="0" min="0" step="0.01" oninput="calcPriceFromMargin()">
             </div>
             <div>
               <label>% Ganancia (Margen)</label>
-              <input type="number" id="i-margin" value="30" step="1" oninput="calcPriceFromMargin()">
+              <input type="number" id="i-margin" value="30" min="0" step="1" oninput="calcPriceFromMargin()">
             </div>
           </div>
 
           <label>Precio de Venta Calculado</label>
-          <input type="number" id="i-price" value="0" step="0.01" oninput="calcMarginFromPrice()">
+          <input type="number" id="i-price" value="0" min="0" step="0.01" oninput="calcMarginFromPrice()">
           
           <label>Existencia Actual (Stock)</label>
-          <input type="number" id="i-stock" value="1">
+          <input type="number" id="i-stock" value="1" min="0" step="1" oninput="sanitizePositiveInt(this)">
           <label>Fotografía del Producto</label>
           <input type="file" id="i-img" accept="image/*">
           <div class="row">
@@ -387,11 +419,11 @@
         <div class="card">
           <h3 style="font-size:16px; margin-bottom:12px;">Nuevo Cliente</h3>
           <label>Nombre / Razón Social</label>
-          <input type="text" id="c-name" placeholder="Ej. Ferretería Del Norte">
+          <input type="text" id="c-name" placeholder="Ej. Ferretería Del Norte" oninput="sanitizeName(this)">
           <label>RNC / Cédula</label>
-          <input type="text" id="c-rnc" placeholder="Ej. 101-00000-1">
+          <input type="text" id="c-rnc" placeholder="000-0000000-0 ó 0-00-00000-0" oninput="formatRNCInput(this)">
           <label>Teléfono / WhatsApp</label>
-          <input type="text" id="c-address" placeholder="809-000-0000">
+          <input type="text" id="c-address" placeholder="809-000-0000" oninput="formatPhoneInput(this)">
           <label>Correo Electrónico</label>
           <input type="email" id="c-email" placeholder="contacto@cliente.com">
           <button class="btn btn-primary" onclick="saveClient()">Guardar Cliente</button>
@@ -444,7 +476,7 @@
           <label>Razón Social / Nombre Comercial</label>
           <input type="text" id="set-biz-name" placeholder="Nombre de tu empresa">
           <label>RNC del Negocio</label>
-          <input type="text" id="set-biz-id" placeholder="RNC de tu empresa">
+          <input type="text" id="set-biz-id" placeholder="RNC de tu empresa" oninput="formatRNCInput(this)">
           <label>Dirección y Teléfono</label>
           <input type="text" id="set-biz-address" placeholder="Santiago de los Caballeros, RD | Tel: 809...">
           <button class="btn btn-primary" onclick="saveSettings()">Guardar Configuración</button>
@@ -530,8 +562,8 @@
     <div style="background:var(--input-bg); border:1px solid var(--border); padding:12px; border-radius:8px; margin-bottom:14px;">
       <h4 style="font-size:13px; margin-bottom:10px; color:var(--text);">Arqueo Físico de Gaveta (Efectivo)</h4>
       <div class="row">
-        <div><label>Fondo Inicial de Caja</label><input type="number" id="cuadre-base" value="0" oninput="calcArqueo()" style="margin-bottom:6px;"></div>
-        <div><label>Efectivo Físico Contado</label><input type="number" id="cuadre-counted" value="0" oninput="calcArqueo()" style="margin-bottom:6px;"></div>
+        <div><label>Fondo Inicial de Caja</label><input type="number" id="cuadre-base" value="0" min="0" oninput="calcArqueo()" style="margin-bottom:6px;"></div>
+        <div><label>Efectivo Físico Contado</label><input type="number" id="cuadre-counted" value="0" min="0" oninput="calcArqueo()" style="margin-bottom:6px;"></div>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; padding-top:6px; border-top:1px solid var(--border); font-size:13px;">
         <span>Efectivo Esperado: <strong id="cuadre-expected">$0.00</strong></span>
