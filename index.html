@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#0f1115">
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -164,7 +165,6 @@
             </div>
           </div>
 
-          <!-- SELECCIÓN DE CLIENTE MEJORADA -->
           <label>Seleccionar Cliente Registrado</label>
           <select id="doc-client-select" onchange="onSelectClientChange()">
             <option value="">-- Selecciona de la lista o escribe abajo --</option>
@@ -182,8 +182,10 @@
         </div>
 
         <div class="card">
-          <!-- SELECCIÓN DE PRODUCTO DEL INVENTARIO -->
-          <label>Añadir Producto del Inventario</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="margin:0;">Añadir Producto</label>
+            <button class="btn btn-pos btn-small" type="button" onclick="startBarcodeScan('doc')">📷 Escanear Código</button>
+          </div>
           <div class="row">
             <div style="flex:2.5;">
               <select id="doc-product-select">
@@ -309,13 +311,19 @@
       </div>
     </div>
 
-    <!-- INVENTARIO Y KARDEX (CON CÁLCULO DE MARGEN) -->
+    <!-- INVENTARIO Y KARDEX (CON CÓDIGO DE BARRAS) -->
     <div id="sec-inventory" class="app-section">
       <div class="split-layout">
         <div class="card">
           <h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3>
           <label>Nombre o Referencia</label>
           <input type="text" id="i-name" placeholder="Nombre del Producto">
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="margin:0;">Código de Barras / SKU</label>
+            <button class="btn btn-pos btn-small" type="button" onclick="startBarcodeScan('inv')">📷 Escanear</button>
+          </div>
+          <input type="text" id="i-barcode" placeholder="Ej. 7460012345678">
           
           <div class="row">
             <div>
@@ -348,7 +356,7 @@
               <button class="btn btn-outline btn-small" onclick="openKardexModal()">📜 Kardex</button>
             </div>
           </div>
-          <input type="text" id="search-inv" class="search-box" placeholder="🔍 Filtrar productos por nombre..." oninput="renderInv()">
+          <input type="text" id="search-inv" class="search-box" placeholder="🔍 Filtrar por nombre o código de barras..." oninput="renderInv()">
           <div id="inventory-list" class="slide-y"></div>
         </div>
       </div>
@@ -480,7 +488,7 @@
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <h4 style="font-size:13px; margin:0;">Pagos Registrados en esta Factura</h4>
-      <button class="btn btn-pos btn-small" onclick="printPOS(currentAbonoDocId)">🖨️ Ticket 80mm</button>
+      <button class="btn btn-pos btn-small" onclick="printPOS(currentAbonoDocId)">🖨️ Factura 80mm</button>
     </div>
     <div id="ab-history-list" class="slide-y" style="max-height:180px;"></div>
   </div>
@@ -517,6 +525,17 @@
       <button class="btn btn-pos btn-small" onclick="printCuadrePOS()">🖨️ Imprimir Cierre 80mm</button>
     </div>
     <div id="cuadre-tx-list" class="slide-y" style="max-height:180px;"></div>
+  </div>
+</div>
+
+<!-- MODAL DEL ESCÁNER DE CÓDIGO DE BARRAS -->
+<div id="modal-scanner" class="modal-overlay">
+  <div class="modal-content" style="max-width: 440px; text-align: center;">
+    <button class="close-modal" onclick="stopBarcodeScan()">✖</button>
+    <h3 style="margin-bottom: 6px; color: var(--accent);">📷 Lector de Código de Barras</h3>
+    <p style="font-size: 12px; color: var(--muted); margin-bottom: 12px;" id="scanner-status">Apunta la cámara al código de barras del producto...</p>
+    <div id="reader" style="width: 100%; border-radius: 8px; overflow: hidden; background: #000;"></div>
+    <button class="btn btn-outline" style="margin-top: 14px;" onclick="stopBarcodeScan()">Cerrar Cámara</button>
   </div>
 </div>
 
