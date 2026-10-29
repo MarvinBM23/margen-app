@@ -69,10 +69,8 @@ function isValidDominicanPhone(phoneStr) {
 function formatRNCInput(input) {
   let v = input.value.replace(/\D/g, '').slice(0, 11);
   if (v.length > 9) {
-    // Formato Cédula: 000-0000000-0
     input.value = `${v.slice(0, 3)}-${v.slice(3, 10)}-${v.slice(10)}`;
   } else if (v.length > 3) {
-    // Formato RNC Jurídico: 0-00-00000-0
     if (v.length <= 8) {
       input.value = `${v.slice(0, 1)}-${v.slice(1, 3)}-${v.slice(3)}`;
     } else {
@@ -120,7 +118,6 @@ function isValidDominicanIdOrRNC(val) {
   return false;
 }
 
-// GENERADOR AUTOMÁTICO DE CÓDIGO SERIE ÚNICO DE PRODUCTO (SKU/UID)
 function generateUniqueSKU() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let rand = '';
@@ -170,7 +167,6 @@ function getDocBalance(d) {
   return Math.max(0, total - getDocPaid(d));
 }
 
-// CÁLCULO DE MARGEN Y PRECIO
 function calcPriceFromMargin() {
   const cost = parseFloat(document.getElementById('i-cost')?.value) || 0;
   const marginPct = parseFloat(document.getElementById('i-margin')?.value) || 0;
@@ -208,8 +204,7 @@ function startBarcodeScan(mode = 'doc') {
     } catch(e) {}
   }
 
-  // Lista explícita de formatos: Códigos de barras 1D (IMEI / Cajas) + QR
-  const formatsToSupport = [
+  const formatsToSupport = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
     Html5QrcodeSupportedFormats.CODE_128,
     Html5QrcodeSupportedFormats.CODE_39,
     Html5QrcodeSupportedFormats.EAN_13,
@@ -217,14 +212,13 @@ function startBarcodeScan(mode = 'doc') {
     Html5QrcodeSupportedFormats.UPC_A,
     Html5QrcodeSupportedFormats.UPC_E,
     Html5QrcodeSupportedFormats.QR_CODE
-  ];
+  ] : undefined;
 
-  html5QrScanner = new Html5Qrcode("reader", { 
-    formatsToSupport: formatsToSupport,
-    verbose: false 
-  });
+  const scannerOptions = { verbose: false };
+  if (formatsToSupport) scannerOptions.formatsToSupport = formatsToSupport;
 
-  // Visor horizontal panorámico (ideal para códigos largos de barras como IMEI)
+  html5QrScanner = new Html5Qrcode("reader", scannerOptions);
+
   const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
     const minEdgePercentage = 0.85;
     const qrboxWidth = Math.floor(viewfinderWidth * minEdgePercentage);
@@ -245,14 +239,11 @@ function startBarcodeScan(mode = 'doc') {
     { facingMode: "environment" },
     config,
     (decodedText) => {
-      // Pitido sonoro de confirmación estilo caja registradora
       playBeepSound();
       onBarcodeScanned(decodedText.trim());
       stopBarcodeScan();
     },
-    (errorMessage) => {
-      // Ignoramos los frames vacíos mientras busca código
-    }
+    () => {}
   ).catch(err => {
     showToast("Error de acceso a la cámara. Concede los permisos necesarios.");
     stopBarcodeScan();
@@ -272,7 +263,6 @@ function stopBarcodeScan() {
   if (modal) modal.classList.remove('active');
 }
 
-// Retroalimentación auditiva cuando lee un código
 function playBeepSound() {
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -288,12 +278,10 @@ function playBeepSound() {
   } catch(e) {}
 }
 
-// SOPORTE ADICIONAL PARA PISTOLAS / LECTORES USB O BLUETOOTH
 let barcodeBuffer = '';
 let lastKeyTime = Date.now();
 
 window.addEventListener('keydown', (e) => {
-  // Si el usuario está escribiendo manualmente en un campo de texto, no interferir
   const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
   const isInput = activeTag === 'input' || activeTag === 'textarea';
   
@@ -314,18 +302,6 @@ window.addEventListener('keydown', (e) => {
     barcodeBuffer += e.key;
   }
 });
-}
-
-function stopBarcodeScan() {
-  if (html5QrScanner) {
-    html5QrScanner.stop().then(() => {
-      html5QrScanner.clear();
-      html5QrScanner = null;
-    }).catch(() => { html5QrScanner = null; });
-  }
-  const modal = document.getElementById('modal-scanner');
-  if (modal) modal.classList.remove('active');
-}
 
 function onBarcodeScanned(code) {
   if (!code) return;
@@ -647,7 +623,7 @@ function saveInv() {
   const warranty = document.getElementById('i-warranty')?.value || '30 Días';
   const c = parseFloat(document.getElementById('i-cost').value);
   const p = parseFloat(document.getElementById('i-price').value);
-  const s = parseInt(document.getElementById('i-stock').value);
+  const s = parseInt(document.getElementById('i-stock').value, 10);
   const margin = parseFloat(document.getElementById('i-margin').value) || 0;
   const f = document.getElementById('i-img').files[0]; 
   
@@ -657,7 +633,6 @@ function saveInv() {
   if(isNaN(s) || s < 0) return showToast("La existencia debe ser un número entero válido");
   if(barcode && barcode.length < 8) return showToast("El IMEI/Código debe contener al menos 8 dígitos");
 
-  // Validar unicidad de IMEI en el inventario
   const duplicate = inventory.find(i => i.barcode && i.barcode === barcode && i.id !== editInvId);
   if(barcode && duplicate) {
     return showToast(`¡Error! El IMEI ${barcode} ya está asignado a: ${duplicate.name}`);
