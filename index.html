@@ -164,9 +164,14 @@
             </div>
           </div>
 
-          <label>Cliente / Razón Social</label>
-          <input list="dl-clients" id="doc-client-name" placeholder="Buscar o escribir nombre del cliente..." onchange="fillClientData()">
-          <datalist id="dl-clients"></datalist>
+          <!-- SELECCIÓN DE CLIENTE MEJORADA -->
+          <label>Seleccionar Cliente Registrado</label>
+          <select id="doc-client-select" onchange="onSelectClientChange()">
+            <option value="">-- Selecciona de la lista o escribe abajo --</option>
+          </select>
+
+          <label>Nombre / Razón Social</label>
+          <input type="text" id="doc-client-name" placeholder="Nombre del cliente o negocio">
           
           <div class="row">
             <div><label>RNC o Cédula</label><input type="text" id="doc-client-rnc" placeholder="Requerido para B01"></div>
@@ -177,9 +182,14 @@
         </div>
 
         <div class="card">
+          <!-- SELECCIÓN DE PRODUCTO DEL INVENTARIO -->
           <label>Añadir Producto del Inventario</label>
           <div class="row">
-            <div style="flex:2.5;"><select id="doc-product-select"></select></div>
+            <div style="flex:2.5;">
+              <select id="doc-product-select">
+                <option value="">-- Elige un producto --</option>
+              </select>
+            </div>
             <div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1"></div>
           </div>
           <button class="btn btn-outline" style="padding:10px; margin-bottom:16px;" onclick="addDocItem()">+ Agregar Línea al Documento</button>
@@ -299,17 +309,28 @@
       </div>
     </div>
 
-    <!-- INVENTARIO Y KARDEX -->
+    <!-- INVENTARIO Y KARDEX (CON CÁLCULO DE MARGEN) -->
     <div id="sec-inventory" class="app-section">
       <div class="split-layout">
         <div class="card">
           <h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3>
           <label>Nombre o Referencia</label>
           <input type="text" id="i-name" placeholder="Nombre del Producto">
+          
           <div class="row">
-            <div><label>Costo Compra</label><input type="number" id="i-cost" value="0"></div>
-            <div><label>Precio Venta</label><input type="number" id="i-price" value="0"></div>
+            <div>
+              <label>Costo de Compra</label>
+              <input type="number" id="i-cost" value="0" step="0.01" oninput="calcPriceFromMargin()">
+            </div>
+            <div>
+              <label>% Ganancia (Margen)</label>
+              <input type="number" id="i-margin" value="30" step="1" oninput="calcPriceFromMargin()">
+            </div>
           </div>
+
+          <label>Precio de Venta Calculado</label>
+          <input type="number" id="i-price" value="0" step="0.01" oninput="calcMarginFromPrice()">
+          
           <label>Existencia Actual (Stock)</label>
           <input type="number" id="i-stock" value="0">
           <label>Fotografía del Producto</label>
