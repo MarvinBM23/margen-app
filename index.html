@@ -43,7 +43,7 @@
           <div><label>F. Nacimiento</label><input type="date" id="reg-dob"></div>
         </div>
         <label>Nombre de tu Negocio</label>
-        <input type="text" id="reg-loc" placeholder="Ej. Comercial Cibao SRL">
+        <input type="text" id="reg-loc" placeholder="Ej. Tech Store SRL">
         <hr style="border-color:var(--border); margin:10px 0 15px 0;">
         <label>Correo de Acceso</label>
         <input type="email" id="reg-email" placeholder="correo@ejemplo.com">
@@ -89,7 +89,7 @@
       <button class="menu-item" id="nav-accounting" onclick="navTo('sec-accounting', this)">📊 Contabilidad & 607</button>
       <button class="menu-item" onclick="navTo('sec-receivables', this)">📥 Cuentas por Cobrar</button>
       <button class="menu-item" onclick="navTo('sec-payables', this)">💸 Cuentas por Pagar</button>
-      <button class="menu-item" onclick="navTo('sec-inventory', this)">📦 Inventario & Kardex</button>
+      <button class="menu-item" onclick="navTo('sec-inventory', this)">📦 Inventario, IMEI & Kardex</button>
       <button class="menu-item" onclick="navTo('sec-clients', this)">👥 Directorio Clientes</button>
       <button class="menu-item" onclick="navTo('sec-team', this)">🛡️ Mi Equipo</button>
       <button class="menu-item" id="nav-settings" onclick="navTo('sec-settings', this)">⚙️ Ajustes de Empresa</button>
@@ -183,13 +183,13 @@
 
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label style="margin:0;">Añadir Producto</label>
-            <button class="btn btn-pos btn-small" type="button" onclick="startBarcodeScan('doc')">📷 Escanear Código</button>
+            <label style="margin:0;">Añadir Producto o Equipo</label>
+            <button class="btn btn-pos btn-small" type="button" onclick="startBarcodeScan('doc')">📷 Escanear IMEI / Código</button>
           </div>
           <div class="row">
             <div style="flex:2.5;">
               <select id="doc-product-select">
-                <option value="">-- Elige un producto --</option>
+                <option value="">-- Elige un producto / equipo --</option>
               </select>
             </div>
             <div style="flex:1;"><input type="number" id="doc-qty" value="1" min="1"></div>
@@ -237,7 +237,7 @@
     <!-- FACTURAS -->
     <div id="sec-invoices" class="app-section">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
-        <input type="text" id="search-invoices" class="search-box" style="margin:0; flex:1; min-width:200px;" placeholder="🔍 Buscar factura por cliente, NCF, RNC o número..." oninput="renderInvoices()">
+        <input type="text" id="search-invoices" class="search-box" style="margin:0; flex:1; min-width:200px;" placeholder="🔍 Buscar factura por cliente, NCF, IMEI, RNC o número..." oninput="renderInvoices()">
         <button class="btn btn-outline btn-small" onclick="toggleSlideMode('invoice-list', this)">↔️ Slide Horizontal</button>
         <button class="btn btn-primary btn-small" onclick="openDocBuilder('Factura')">+ Nueva Factura</button>
       </div>
@@ -311,17 +311,43 @@
       </div>
     </div>
 
-    <!-- INVENTARIO Y KARDEX (CON CÓDIGO DE BARRAS) -->
+    <!-- INVENTARIO (CON IMEI, SERIE ÚNICA Y GARANTÍA) -->
     <div id="sec-inventory" class="app-section">
       <div class="split-layout">
         <div class="card">
-          <h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto</h3>
-          <label>Nombre o Referencia</label>
-          <input type="text" id="i-name" placeholder="Nombre del Producto">
+          <h3 id="inv-form-title" style="font-size:16px; margin-bottom:12px;">Añadir Producto o Equipo</h3>
+          
+          <label>Nombre o Modelo del Equipo</label>
+          <input type="text" id="i-name" placeholder="Ej. iPhone 13 128GB Midnight">
+
+          <div class="row">
+            <div>
+              <label>Serie / Código Único (Auto)</label>
+              <input type="text" id="i-serial" placeholder="SN-XXXXXX" readonly style="background:var(--card-bg); font-family:monospace; color:var(--accent); font-weight:bold;">
+            </div>
+            <div>
+              <label>Garantía Ofrecida</label>
+              <select id="i-warranty">
+                <option value="Sin garantía">Sin garantía</option>
+                <option value="15 días">15 días</option>
+                <option value="30 días" selected>30 días (1 mes)</option>
+                <option value="60 días">60 días (2 meses)</option>
+                <option value="90 días">90 días (3 meses)</option>
+                <option value="6 meses">6 meses</option>
+                <option value="1 año">1 año</option>
+              </select>
+            </div>
+          </div>
 
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label style="margin:0;">Código de Barras / SKU</label>
-            <button class="btn btn-pos btn-small" type="button" onclick="startBarcodeScan('inv')">📷 Escanear</button>
+            <label style="margin:0;">Código IMEI del Equipo</label>
+            <button class="btn btn-pos btn-small" type="button" onclick="startBarcodeScan('inv-imei')">📷 Escanear IMEI</button>
+          </div>
+          <input type="text" id="i-imei" placeholder="Ej. 356987123456789">
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="margin:0;">Código de Barras / SKU (Opcional)</label>
+            <button class="btn btn-outline btn-small" type="button" onclick="startBarcodeScan('inv-barcode')">📷 Escanear Código</button>
           </div>
           <input type="text" id="i-barcode" placeholder="Ej. 7460012345678">
           
@@ -340,8 +366,8 @@
           <input type="number" id="i-price" value="0" step="0.01" oninput="calcMarginFromPrice()">
           
           <label>Existencia Actual (Stock)</label>
-          <input type="number" id="i-stock" value="0">
-          <label>Fotografía del Producto</label>
+          <input type="number" id="i-stock" value="1">
+          <label>Fotografía del Equipo</label>
           <input type="file" id="i-img" accept="image/*">
           <div class="row">
             <button class="btn btn-outline" onclick="clearInvForm()">Limpiar</button>
@@ -356,7 +382,7 @@
               <button class="btn btn-outline btn-small" onclick="openKardexModal()">📜 Kardex</button>
             </div>
           </div>
-          <input type="text" id="search-inv" class="search-box" placeholder="🔍 Filtrar por nombre o código de barras..." oninput="renderInv()">
+          <input type="text" id="search-inv" class="search-box" placeholder="🔍 Filtrar por nombre, IMEI, Serie (SN) o barras..." oninput="renderInv()">
           <div id="inventory-list" class="slide-y"></div>
         </div>
       </div>
@@ -528,12 +554,12 @@
   </div>
 </div>
 
-<!-- MODAL DEL ESCÁNER DE CÓDIGO DE BARRAS -->
+<!-- MODAL DEL ESCÁNER DE CÓDIGO / IMEI -->
 <div id="modal-scanner" class="modal-overlay">
   <div class="modal-content" style="max-width: 440px; text-align: center;">
     <button class="close-modal" onclick="stopBarcodeScan()">✖</button>
-    <h3 style="margin-bottom: 6px; color: var(--accent);">📷 Lector de Código de Barras</h3>
-    <p style="font-size: 12px; color: var(--muted); margin-bottom: 12px;" id="scanner-status">Apunta la cámara al código de barras del producto...</p>
+    <h3 style="margin-bottom: 6px; color: var(--accent);">📷 Lector de Código / IMEI</h3>
+    <p style="font-size: 12px; color: var(--muted); margin-bottom: 12px;" id="scanner-status">Apunta la cámara al código de barras o IMEI del equipo...</p>
     <div id="reader" style="width: 100%; border-radius: 8px; overflow: hidden; background: #000;"></div>
     <button class="btn btn-outline" style="margin-top: 14px;" onclick="stopBarcodeScan()">Cerrar Cámara</button>
   </div>
@@ -565,7 +591,7 @@
   </div>
   <div style="padding: 30px;">
     <table class="pdf-table">
-      <thead id="pdf-table-head"><tr><th>Descripción</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Importe</th></tr></thead>
+      <thead id="pdf-table-head"><tr><th>Descripción / IMEI / Serie</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Importe</th></tr></thead>
       <tbody id="pdf-table-body"></tbody>
     </table>
     <div style="width: 320px; float: right; margin-top:20px;">
