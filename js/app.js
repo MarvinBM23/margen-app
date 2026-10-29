@@ -194,15 +194,85 @@ function calcMarginFromPrice() {
 }
 
 // =========================================================
-// ESCÁNER ULTRA-COMPATIBLE CON CIERRE GARANTIZADO
+// ESCÁNER UNIVERSAL FULL-FRAME (SERIES LARGAS, S/N, IMEI Y QR)
 // =========================================================
 async function startBarcodeScan(mode = 'doc') {
   scanTargetMode = mode;
   const modal = document.getElementById('modal-scanner');
   if (modal) modal.classList.add('active');
   const statusEl = document.getElementById('scanner-status');
-  if (statusEl) statusEl.innerText = "Accediendo a la cámara...";
+  if (statusEl) statusEl.innerText = "Iniciando escáner...";
 
+  await forceStopScanner();
+
+  try {
+    // Todos los formatos industriales alfanuméricos de equipos electrónicos
+    const formatsToSupport = [
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.ITF,
+      Html5QrcodeSupportedFormats.DATA_MATRIX,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ];
+
+    html5QrScanner = new Html5Qrcode("reader", { 
+      formatsToSupport: formatsToSupport,
+      verbose: false,
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true // Lector nativo por hardware (GPU/NPU del móvil o PC)
+      }
+    });
+
+    const devices = await Html5Qrcode.getCameras();
+    const camSelect = document.getElementById('scanner-camera-select');
+    let cameraIdOrConfig = { facingMode: "environment" };
+
+    if (devices && devices.length > 0) {
+      if (camSelect) {
+        camSelect.innerHTML = devices.map((d, idx) => `<option value="${d.id}">Cámara ${idx + 1}: ${d.label || 'Dispositivo'}</option>`).join('');
+        camSelect.style.display = devices.length > 1 ? 'block' : 'none';
+      }
+      const backCam = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera'));
+      cameraIdOrConfig = backCam ? backCam.id : devices[0].id;
+      if (camSelect && backCam) camSelect.value = backCam.id;
+    }
+
+    isScannerStarting = true;
+    if (statusEl) statusEl.innerText = "Apunta al código de serie o IMEI (mantén la cámara quieta)...";
+
+    // Sin qrbox: analiza la imagen completa para no recortar códigos largos
+    const config = {
+      fps: 25,
+      disableFlip: true
+    };
+
+    await html5QrScanner.start(
+      cameraIdOrConfig,
+      config,
+      (decodedText) => {
+        playBeepSound();
+        onBarcodeScanned(decodedText.trim());
+        stopBarcodeScan();
+      },
+      () => {} // Ignorar cuadros sin código
+    );
+
+    isScannerStarting = false;
+    isScannerRunning = true;
+
+  } catch (err) {
+    console.warn("Fallo al iniciar escáner:", err);
+    isScannerStarting = false;
+    isScannerRunning = false;
+    if (statusEl) statusEl.innerText = "No se pudo acceder a la cámara o no hay permisos.";
+    showToast("Error de cámara: " + (err.message || err));
+  }
+}
   // Si ya había una instancia previa, limpiamos de forma segura
   await forceStopScanner();
 
