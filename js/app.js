@@ -192,7 +192,9 @@ function calcMarginFromPrice() {
   }
 }
 
-// ESCÁNER DE CÓDIGO DE BARRAS / IMEI
+// =========================================================
+// ESCÁNER DE CÓDIGO DE BARRAS / IMEI ULTRA-COMPATIBLE
+// =========================================================
 function startBarcodeScan(mode = 'doc') {
   scanTargetMode = mode;
   const modal = document.getElementById('modal-scanner');
@@ -201,24 +203,117 @@ function startBarcodeScan(mode = 'doc') {
   if (statusEl) statusEl.innerText = mode === 'inv' ? "Apunta al código IMEI de la caja o equipo..." : "Apunta al código IMEI para facturar...";
 
   if (html5QrScanner) {
-    html5QrScanner.clear().catch(() => {});
+    try {
+      html5QrScanner.stop().then(() => { html5QrScanner.clear(); }).catch(() => {});
+    } catch(e) {}
   }
 
-  html5QrScanner = new Html5Qrcode("reader");
-  const config = { fps: 10, qrbox: { width: 260, height: 160 } };
+  // Lista explícita de formatos: Códigos de barras 1D (IMEI / Cajas) + QR
+  const formatsToSupport = [
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.QR_CODE
+  ];
+
+  html5QrScanner = new Html5Qrcode("reader", { 
+    formatsToSupport: formatsToSupport,
+    verbose: false 
+  });
+
+  // Visor horizontal panorámico (ideal para códigos largos de barras como IMEI)
+  const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
+    const minEdgePercentage = 0.85;
+    const qrboxWidth = Math.floor(viewfinderWidth * minEdgePercentage);
+    const qrboxHeight = Math.max(120, Math.floor(viewfinderHeight * 0.45));
+    return { width: qrboxWidth, height: qrboxHeight };
+  };
+
+  const config = { 
+    fps: 15, 
+    qrbox: qrboxFunction,
+    aspectRatio: 1.333333,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true
+    }
+  };
 
   html5QrScanner.start(
     { facingMode: "environment" },
     config,
     (decodedText) => {
+      // Pitido sonoro de confirmación estilo caja registradora
+      playBeepSound();
       onBarcodeScanned(decodedText.trim());
       stopBarcodeScan();
     },
-    () => {}
+    (errorMessage) => {
+      // Ignoramos los frames vacíos mientras busca código
+    }
   ).catch(err => {
-    showToast("No se pudo iniciar la cámara: " + err);
+    showToast("Error de acceso a la cámara. Concede los permisos necesarios.");
     stopBarcodeScan();
   });
+}
+
+function stopBarcodeScan() {
+  if (html5QrScanner) {
+    html5QrScanner.stop().then(() => {
+      html5QrScanner.clear();
+      html5QrScanner = null;
+    }).catch(() => { 
+      html5QrScanner = null; 
+    });
+  }
+  const modal = document.getElementById('modal-scanner');
+  if (modal) modal.classList.remove('active');
+}
+
+// Retroalimentación auditiva cuando lee un código
+function playBeepSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.12);
+  } catch(e) {}
+}
+
+// SOPORTE ADICIONAL PARA PISTOLAS / LECTORES USB O BLUETOOTH
+let barcodeBuffer = '';
+let lastKeyTime = Date.now();
+
+window.addEventListener('keydown', (e) => {
+  // Si el usuario está escribiendo manualmente en un campo de texto, no interferir
+  const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+  const isInput = activeTag === 'input' || activeTag === 'textarea';
+  
+  const currentTime = Date.now();
+  if (currentTime - lastKeyTime > 100) {
+    barcodeBuffer = '';
+  }
+  lastKeyTime = currentTime;
+
+  if (e.key === 'Enter') {
+    if (barcodeBuffer.length >= 6) {
+      if (!isInput) {
+        onBarcodeScanned(barcodeBuffer.trim());
+        barcodeBuffer = '';
+      }
+    }
+  } else if (e.key.length === 1) {
+    barcodeBuffer += e.key;
+  }
+});
 }
 
 function stopBarcodeScan() {
