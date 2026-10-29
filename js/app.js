@@ -36,7 +36,7 @@ const NCF_LABELS = {
 // MÓDULO DE VALIDACIONES ESTRICTAS DOMINICANAS
 // =========================================================
 function sanitizeDigitsOnly(input) {
-  input.value = input.value.replace(/\D/g, '');
+  input.value = input.value.replace(/[^a-zA-Z0-9\-\_\.\/]/g, '');
 }
 
 function sanitizePositiveInt(input) {
@@ -189,14 +189,18 @@ function calcMarginFromPrice() {
 }
 
 // =========================================================
-// ESCÁNER DE CÓDIGO DE BARRAS / IMEI ULTRA-COMPATIBLE
+// ESCÁNER UNIVERSAL (SERIES S/N, IMEI, SKU Y CÓDIGOS 1D/2D)
 // =========================================================
 function startBarcodeScan(mode = 'doc') {
   scanTargetMode = mode;
   const modal = document.getElementById('modal-scanner');
   if (modal) modal.classList.add('active');
   const statusEl = document.getElementById('scanner-status');
-  if (statusEl) statusEl.innerText = mode === 'inv' ? "Apunta al código IMEI de la caja o equipo..." : "Apunta al código IMEI para facturar...";
+  if (statusEl) {
+    statusEl.innerText = mode === 'inv' 
+      ? "Apunta al número de serie (S/N) o código del equipo..." 
+      : "Apunta al serial / código para agregarlo a la venta...";
+  }
 
   if (html5QrScanner) {
     try {
@@ -207,10 +211,13 @@ function startBarcodeScan(mode = 'doc') {
   const formatsToSupport = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
     Html5QrcodeSupportedFormats.CODE_128,
     Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.CODE_93,
     Html5QrcodeSupportedFormats.EAN_13,
     Html5QrcodeSupportedFormats.EAN_8,
     Html5QrcodeSupportedFormats.UPC_A,
     Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.ITF,
+    Html5QrcodeSupportedFormats.DATA_MATRIX,
     Html5QrcodeSupportedFormats.QR_CODE
   ] : undefined;
 
@@ -220,33 +227,50 @@ function startBarcodeScan(mode = 'doc') {
   html5QrScanner = new Html5Qrcode("reader", scannerOptions);
 
   const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
-    const minEdgePercentage = 0.85;
-    const qrboxWidth = Math.floor(viewfinderWidth * minEdgePercentage);
-    const qrboxHeight = Math.max(120, Math.floor(viewfinderHeight * 0.45));
-    return { width: qrboxWidth, height: qrboxHeight };
+    return {
+      width: Math.floor(viewfinderWidth * 0.90),
+      height: Math.max(130, Math.floor(viewfinderHeight * 0.55))
+    };
   };
 
-  const config = { 
-    fps: 15, 
+  const cameraConfig = {
+    facingMode: "environment",
+    width: { min: 640, ideal: 1280, max: 1920 },
+    height: { min: 480, ideal: 720, max: 1080 }
+  };
+
+  const scanConfig = { 
+    fps: 20, 
     qrbox: qrboxFunction,
-    aspectRatio: 1.333333,
+    disableFlip: true,
     experimentalFeatures: {
       useBarCodeDetectorIfSupported: true
     }
   };
 
   html5QrScanner.start(
-    { facingMode: "environment" },
-    config,
+    cameraConfig,
+    scanConfig,
     (decodedText) => {
       playBeepSound();
       onBarcodeScanned(decodedText.trim());
       stopBarcodeScan();
     },
     () => {}
-  ).catch(err => {
-    showToast("Error de acceso a la cámara. Concede los permisos necesarios.");
-    stopBarcodeScan();
+  ).catch(() => {
+    html5QrScanner.start(
+      { facingMode: "environment" },
+      { fps: 15, qrbox: qrboxFunction },
+      (decodedText) => {
+        playBeepSound();
+        onBarcodeScanned(decodedText.trim());
+        stopBarcodeScan();
+      },
+      () => {}
+    ).catch(err => {
+      showToast("No se pudo iniciar la cámara. Concede los permisos en el navegador.");
+      stopBarcodeScan();
+    });
   });
 }
 
@@ -261,6 +285,26 @@ function stopBarcodeScan() {
   }
   const modal = document.getElementById('modal-scanner');
   if (modal) modal.classList.remove('active');
+}
+
+function scanBarcodeFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const scanner = new Html5Qrcode("reader-hidden-file");
+  showToast("Analizando imagen...");
+
+  scanner.scanFile(file, true)
+    .then(decodedText => {
+      playBeepSound();
+      onBarcodeScanned(decodedText.trim());
+      stopBarcodeScan();
+      scanner.clear();
+    })
+    .catch(() => {
+      showToast("No se detectó ningún código claro en la foto");
+      scanner.clear();
+    });
 }
 
 function playBeepSound() {
@@ -292,7 +336,7 @@ window.addEventListener('keydown', (e) => {
   lastKeyTime = currentTime;
 
   if (e.key === 'Enter') {
-    if (barcodeBuffer.length >= 6) {
+    if (barcodeBuffer.length >= 4) {
       if (!isInput) {
         onBarcodeScanned(barcodeBuffer.trim());
         barcodeBuffer = '';
@@ -305,18 +349,20 @@ window.addEventListener('keydown', (e) => {
 
 function onBarcodeScanned(code) {
   if (!code) return;
+  const cleanCode = code.trim();
+  const searchKey = cleanCode.toUpperCase();
 
   if (scanTargetMode === 'inv') {
     const barEl = document.getElementById('i-barcode');
-    if (barEl) barEl.value = code;
-    showToast(`IMEI asignado: ${code}`);
+    if (barEl) barEl.value = cleanCode;
+    showToast(`Serial/Código asignado: ${cleanCode}`);
     return;
   }
 
   const prod = inventory.find(i => 
-    (i.barcode && i.barcode.trim() === code) || 
-    (i.sku && i.sku.trim().toUpperCase() === code.toUpperCase()) || 
-    i.id === code
+    (i.barcode && i.barcode.trim().toUpperCase() === searchKey) || 
+    (i.sku && i.sku.trim().toUpperCase() === searchKey) || 
+    i.id.toUpperCase() === searchKey
   );
 
   if (prod) {
@@ -337,9 +383,9 @@ function onBarcodeScanned(code) {
     }
     renderDocItems();
     calcDoc();
-    showToast(`+1 ${prod.name}`);
+    showToast(`Equipo añadido: ${prod.name}`);
   } else {
-    showToast(`IMEI no registrado: ${code}`);
+    showToast(`Serial no encontrado: ${cleanCode}`);
   }
 }
 
@@ -631,11 +677,15 @@ function saveInv() {
   if(isNaN(c) || c < 0) return showToast("El costo debe ser un valor positivo");
   if(isNaN(p) || p <= 0) return showToast("El precio de venta debe ser mayor a cero");
   if(isNaN(s) || s < 0) return showToast("La existencia debe ser un número entero válido");
-  if(barcode && barcode.length < 8) return showToast("El IMEI/Código debe contener al menos 8 dígitos");
+  if(barcode && barcode.length < 4) return showToast("El Serial/Código debe contener al menos 4 caracteres");
 
-  const duplicate = inventory.find(i => i.barcode && i.barcode === barcode && i.id !== editInvId);
+  const duplicate = inventory.find(i => 
+    i.barcode && 
+    i.barcode.trim().toUpperCase() === barcode.toUpperCase() && 
+    i.id !== editInvId
+  );
   if(barcode && duplicate) {
-    return showToast(`¡Error! El IMEI ${barcode} ya está asignado a: ${duplicate.name}`);
+    return showToast(`¡Error! El serial/IMEI ${barcode} ya está asignado a: ${duplicate.name}`);
   }
   
   const cb = async (imgData) => { 
@@ -730,7 +780,7 @@ function renderInv() {
         <div>
           <strong>${i.name}</strong> 
           ${i.sku ? `<span class="badge ncf" style="color:var(--accent);">Serie: ${i.sku}</span>` : ''}
-          ${i.barcode ? `<span class="badge ncf">IMEI: ${i.barcode}</span>` : ''} 
+          ${i.barcode ? `<span class="badge ncf">S/N: ${i.barcode}</span>` : ''} 
           ${i.stock <= 3 ? `<span class="badge low-stock">¡Stock: ${i.stock}!</span>` : ''}<br>
           <small style="color:var(--muted);">Garantía: <strong>${i.warranty || '30 Días'}</strong> | Costo: ${fMoney(i.cost)} | Venta: <strong style="color:var(--text);">${fMoney(i.price)}</strong> (+${profitMargin}%) | Stock: ${i.stock}</small>
         </div>
@@ -820,9 +870,9 @@ function updateSelects() {
 
   const ps = document.getElementById('doc-product-select');
   if (ps) {
-    ps.innerHTML = '<option value="">-- Elige un producto por Nombre o IMEI --</option>' +
+    ps.innerHTML = '<option value="">-- Elige un producto por Nombre, Serie o IMEI --</option>' +
       inventory.map(i => {
-        const imeiTag = i.barcode ? ` [IMEI: ${i.barcode}]` : '';
+        const imeiTag = i.barcode ? ` [S/N: ${i.barcode}]` : '';
         const serieTag = i.sku ? ` [${i.sku}]` : '';
         return `<option value="${i.id}">${i.name}${imeiTag}${serieTag} — ${fMoney(i.price)} (Disp: ${i.stock})</option>`;
       }).join('');
@@ -979,7 +1029,7 @@ function renderDocItems() {
         <span style="font-size:13px;">${item.qty}x <strong>${item.name}</strong></span><br>
         <small style="color:var(--muted);">
           ${item.sku ? `Serie: <strong>${item.sku}</strong> | ` : ''}
-          ${item.barcode ? `IMEI: <strong>${item.barcode}</strong> | ` : ''}
+          ${item.barcode ? `S/N: <strong>${item.barcode}</strong> | ` : ''}
           Garantía: ${item.warranty || '30 Días'}
         </small>
       </div>
@@ -1440,7 +1490,7 @@ function printPOS(id) {
   const balance = getDocBalance(d);
 
   const itemsRows = d.items.map(i => {
-    const imeiLine = (i.barcode || i.sku) ? `<br><small style="font-size:10px;">${i.sku ? 'Serie:'+i.sku+' ' : ''}${i.barcode ? 'IMEI:'+i.barcode : ''} [Gar: ${i.warranty || '30 Días'}]</small>` : '';
+    const imeiLine = (i.barcode || i.sku) ? `<br><small style="font-size:10px;">${i.sku ? 'Serie:'+i.sku+' ' : ''}${i.barcode ? 'S/N:'+i.barcode : ''} [Gar: ${i.warranty || '30 Días'}]</small>` : '';
     return `
       <tr>
         <td colspan="3" style="padding-top:4px; font-weight:bold;">${i.name}${imeiLine}</td>
@@ -1693,7 +1743,7 @@ function shareWhatsApp(id) {
   const cur = d.totals.currency || 'DOP';
   const bizName = settings.name || 'Nuestro Negocio';
   const itemsText = d.items.map(i => {
-    const imei = i.barcode ? ` [IMEI: ${i.barcode}]` : '';
+    const imei = i.barcode ? ` [S/N: ${i.barcode}]` : '';
     const war = i.warranty ? ` (Garantía: ${i.warranty})` : '';
     return `• ${i.qty}x ${i.name}${imei}${war} (${fMoney(i.price * i.qty, cur)})`;
   }).join('%0A');
@@ -1819,7 +1869,7 @@ function renderDashboard() {
       ${i.img ? `<img src="${i.img}">` : `<div style="width:100%;height:85px;background:var(--bg);border-radius:8px;margin-bottom:8px;"></div>`}
       <h4>${i.name}</h4>
       <p>
-        ${i.barcode ? `<small style="font-size:10px; color:var(--accent);">IMEI: ${i.barcode}</small><br>` : ''}
+        ${i.barcode ? `<small style="font-size:10px; color:var(--accent);">S/N: ${i.barcode}</small><br>` : ''}
         ${fMoney(i.price)}<br>
         <span style="color:${i.stock<=3?'var(--danger)':'var(--muted)'}">Stock: ${i.stock}</span>
       </p>
@@ -1958,7 +2008,7 @@ function genPDF(id) {
   }
   
   let table = d.items.map(i => {
-    const imeiLine = (i.barcode || i.sku) ? `<br><small style="color:#4b5563; font-size:11px;">${i.sku ? 'Serie: <strong>'+i.sku+'</strong> | ' : ''}${i.barcode ? 'IMEI: <strong>'+i.barcode+'</strong> | ' : ''}Garantía: ${i.warranty || '30 Días'}</small>` : '';
+    const imeiLine = (i.barcode || i.sku) ? `<br><small style="color:#4b5563; font-size:11px;">${i.sku ? 'Serie: <strong>'+i.sku+'</strong> | ' : ''}${i.barcode ? 'S/N: <strong>'+i.barcode+'</strong> | ' : ''}Garantía: ${i.warranty || '30 Días'}</small>` : '';
     return `<tr>
       <td><strong>${i.name}</strong>${imeiLine}</td>
       <td style="text-align:center;">${i.qty}</td>
