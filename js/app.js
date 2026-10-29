@@ -56,7 +56,6 @@ function fMoney(val, specificCurrency = null) {
   return symbol + (Number(val) || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); 
 }
 
-// FUNCIONES AUXILIARES DE COBRO Y BALANCE
 function getDocPaid(d) {
   if (d.type !== 'Factura') return 0;
   if (Array.isArray(d.payments) && d.payments.length > 0) {
@@ -70,6 +69,30 @@ function getDocBalance(d) {
   if (d.type !== 'Factura') return 0;
   const total = d.totals?.total || 0;
   return Math.max(0, total - getDocPaid(d));
+}
+
+// =========================================================
+// NUEVO: CÁLCULO INTELIGENTE DE MARGEN Y PRECIO EN INVENTARIO
+// =========================================================
+function calcPriceFromMargin() {
+  const cost = parseFloat(document.getElementById('i-cost')?.value) || 0;
+  const marginPct = parseFloat(document.getElementById('i-margin')?.value) || 0;
+  const price = cost * (1 + (marginPct / 100));
+  const priceEl = document.getElementById('i-price');
+  if (priceEl) priceEl.value = price > 0 ? price.toFixed(2) : '0';
+}
+
+function calcMarginFromPrice() {
+  const cost = parseFloat(document.getElementById('i-cost')?.value) || 0;
+  const price = parseFloat(document.getElementById('i-price')?.value) || 0;
+  const marginEl = document.getElementById('i-margin');
+  if (!marginEl) return;
+  if (cost > 0) {
+    const margin = ((price - cost) / cost) * 100;
+    marginEl.value = Math.round(margin);
+  } else {
+    marginEl.value = '0';
+  }
 }
 
 window.onload = () => {
@@ -336,10 +359,17 @@ function openKardexModal() {
 }
 
 function saveInv() { 
-  const n = document.getElementById('i-name').value.trim(), c = parseFloat(document.getElementById('i-cost').value)||0, p = parseFloat(document.getElementById('i-price').value)||0, s = parseInt(document.getElementById('i-stock').value)||0, f = document.getElementById('i-img').files[0]; 
+  const n = document.getElementById('i-name').value.trim();
+  const c = parseFloat(document.getElementById('i-cost').value) || 0;
+  const p = parseFloat(document.getElementById('i-price').value) || 0;
+  const s = parseInt(document.getElementById('i-stock').value) || 0;
+  const margin = parseFloat(document.getElementById('i-margin').value) || 0;
+  const f = document.getElementById('i-img').files[0]; 
+  
   if(!n) return showToast("Escribe el nombre del producto"); 
+  
   const cb = async (imgData) => { 
-    const data = { name:n, cost:c, price:p, stock:s, img: imgData };
+    const data = { name: n, cost: c, price: p, margin: margin, stock: s, img: imgData };
     let change = s, desc = "Inventario inicial";
     if(editInvId) { 
       const oldProd = inventory.find(i => i.id === editInvId);
@@ -366,6 +396,18 @@ function editInv(id) {
   document.getElementById('i-cost').value = i.cost; 
   document.getElementById('i-price').value = i.price; 
   document.getElementById('i-stock').value = i.stock; 
+  
+  const marginEl = document.getElementById('i-margin');
+  if (marginEl) {
+    if (typeof i.margin === 'number') {
+      marginEl.value = i.margin;
+    } else if (i.cost > 0) {
+      marginEl.value = Math.round(((i.price - i.cost) / i.cost) * 100);
+    } else {
+      marginEl.value = '30';
+    }
+  }
+
   editInvId = id; 
   document.getElementById('inv-form-title').innerText = "Editar Producto"; 
   document.getElementById('btn-save-inv').innerText = "Actualizar"; 
@@ -373,11 +415,12 @@ function editInv(id) {
 }
 
 function clearInvForm() { 
-  document.getElementById('i-name').value=''; 
-  document.getElementById('i-cost').value='0'; 
-  document.getElementById('i-price').value='0'; 
-  document.getElementById('i-stock').value='0'; 
-  document.getElementById('i-img').value=''; 
+  document.getElementById('i-name').value = ''; 
+  document.getElementById('i-cost').value = '0'; 
+  document.getElementById('i-price').value = '0'; 
+  document.getElementById('i-margin').value = '30';
+  document.getElementById('i-stock').value = '0'; 
+  document.getElementById('i-img').value = ''; 
   editInvId = null; 
   document.getElementById('inv-form-title').innerText = "Añadir Producto"; 
   document.getElementById('btn-save-inv').innerText = "Guardar Nube"; 
@@ -388,20 +431,23 @@ function renderInv() {
   if(!el) return;
   const q = (document.getElementById('search-inv')?.value || '').toLowerCase();
   const filtered = inventory.filter(i => i.name.toLowerCase().includes(q));
-  el.innerHTML = filtered.map(i => `
+  el.innerHTML = filtered.map(i => {
+    const profitMargin = i.cost > 0 ? Math.round(((i.price - i.cost) / i.cost) * 100) : 0;
+    return `
     <div class="item-row">
       <div style="display:flex; gap:10px; align-items:center;">
         ${i.img ? `<img src="${i.img}" class="prod-img">` : '<div class="prod-img"></div>'}
         <div>
           <strong>${i.name}</strong> ${i.stock <= 3 ? `<span class="badge low-stock">¡Bajo Stock: ${i.stock}!</span>` : ''}<br>
-          <small style="color:var(--muted);">Costo: ${fMoney(i.cost)} | Venta: <strong style="color:var(--text);">${fMoney(i.price)}</strong> | Stock: ${i.stock}</small>
+          <small style="color:var(--muted);">Costo: ${fMoney(i.cost)} | Venta: <strong style="color:var(--text);">${fMoney(i.price)}</strong> | Margen: <strong style="color:var(--accent);">+${profitMargin}%</strong> | Stock: ${i.stock}</small>
         </div>
       </div>
       <div style="display:flex; gap:5px;">
         <button class="btn-small btn-outline" onclick="editInv('${i.id}')">✏️</button>
         <button class="btn-small" style="background:var(--danger); border:none; color:#fff;" onclick="delInv('${i.id}')">✖</button>
       </div>
-    </div>`).join('') || '<p style="color:var(--muted); font-size:13px; text-align:center;">No se encontraron productos.</p>'; 
+    </div>`;
+  }).join('') || '<p style="color:var(--muted); font-size:13px; text-align:center;">No se encontraron productos.</p>'; 
 }
 
 function closeModal(id) { 
@@ -465,10 +511,39 @@ function renderClients() {
     </div>`).join('') || '<p style="color:var(--muted); font-size:13px; text-align:center;">No hay clientes registrados.</p>'; 
 }
 
+// =========================================================
+// NUEVO: ACTUALIZACIÓN DE SELECTORES DESPLEGABLES
+// =========================================================
 function updateSelects() { 
-  const dl = document.getElementById('dl-clients'), ps = document.getElementById('doc-product-select');
-  if(dl) dl.innerHTML = clients.map(c => `<option value="${c.name}">`).join(''); 
-  if(ps) ps.innerHTML = inventory.map(i => `<option value="${i.id}">${i.name} (${fMoney(i.price)} | Disp: ${i.stock})</option>`).join(''); 
+  const clientSelect = document.getElementById('doc-client-select');
+  if (clientSelect) {
+    clientSelect.innerHTML = '<option value="">-- Selecciona de la lista o escribe abajo --</option>' +
+      clients.map(c => `<option value="${c.id}">${c.name} ${c.rnc ? `(${c.rnc})` : ''}</option>`).join('');
+  }
+
+  const ps = document.getElementById('doc-product-select');
+  if (ps) {
+    ps.innerHTML = '<option value="">-- Elige un producto --</option>' +
+      inventory.map(i => `<option value="${i.id}">${i.name} — ${fMoney(i.price)} (Stock: ${i.stock})</option>`).join('');
+  }
+}
+
+function onSelectClientChange() {
+  const select = document.getElementById('doc-client-select');
+  if (!select) return;
+  const clientId = select.value;
+  if (!clientId) return;
+  const c = clients.find(x => x.id === clientId);
+  if (c) {
+    const nameEl = document.getElementById('doc-client-name');
+    const ce = document.getElementById('doc-client-email');
+    const cp = document.getElementById('doc-client-phone');
+    const cr = document.getElementById('doc-client-rnc');
+    if (nameEl) nameEl.value = c.name;
+    if (ce) ce.value = c.email || '';
+    if (cp) cp.value = c.address || '';
+    if (cr) cr.value = c.rnc || '';
+  }
 }
 
 function savePayable() { 
@@ -499,7 +574,6 @@ function renderReceivables() {
   if(el) el.innerHTML = receivables.map(r => `<div class="item-row"><div><strong>${r.concept}</strong><br><small style="color:var(--muted);">${r.date ? 'Vence: '+r.date : 'Sin fecha'} | ${fMoney(r.amount)}</small></div><div style="display:flex;gap:5px;align-items:center;"><select style="width:auto; margin:0; font-size:11px; padding:4px;" onchange="toggleReceivableStatus('${r.id}', this.value)"><option value="Pendiente" ${r.status==='Pendiente'?'selected':''}>Pendiente</option><option value="Pagado" ${r.status==='Pagado'?'selected':''}>Pagado</option></select><button class="btn-small" style="background:var(--danger);border:none;color:#fff;" onclick="delReceivable('${r.id}')">✖</button></div></div>`).join('') || '<p style="color:var(--muted);font-size:13px;">No hay cobros manuales.</p>'; 
 }
 
-// CONSTRUCTOR DE DOCUMENTOS Y NCF
 function handleNcfChange() {
   const ncfType = document.getElementById('doc-ncf-type')?.value;
   const taxEl = document.getElementById('doc-tax');
@@ -546,8 +620,10 @@ function startFromProd(type, prodId) {
 function fillClientData() { 
   const nameEl = document.getElementById('doc-client-name'); 
   if(!nameEl) return; 
-  const c = clients.find(x => x.name === nameEl.value); 
+  const c = clients.find(x => x.name.toLowerCase() === nameEl.value.trim().toLowerCase()); 
   if(c) { 
+    const select = document.getElementById('doc-client-select');
+    if (select) select.value = c.id;
     const ce = document.getElementById('doc-client-email'), cp = document.getElementById('doc-client-phone'), cr = document.getElementById('doc-client-rnc'); 
     if(ce) ce.value = c.email || ''; 
     if(cp) cp.value = c.address || ''; 
@@ -559,11 +635,12 @@ function addDocItem() {
   const idEl = document.getElementById('doc-product-select'), qtyEl = document.getElementById('doc-qty'); 
   if(!idEl || !qtyEl) return; 
   const id = idEl.value, qty = parseFloat(qtyEl.value); 
-  if(!id||isNaN(qty) || qty<=0) return; 
+  if(!id || isNaN(qty) || qty <= 0) return showToast("Selecciona un producto y cantidad válida"); 
   const prod = inventory.find(i => i.id === id); 
   if(prod) { 
     currentItems.push({id: prod.id, name: prod.name, cost: prod.cost, price: prod.price, qty}); 
-    qtyEl.value='1'; 
+    qtyEl.value = '1'; 
+    idEl.value = '';
     renderDocItems(); 
     calcDoc(); 
   } 
@@ -757,6 +834,11 @@ function editDoc(id) {
   document.getElementById('doc-client-rnc').value = d.client.rnc || ''; 
   document.getElementById('doc-client-email').value = d.client.email || ''; 
   document.getElementById('doc-client-phone').value = d.client.phone || '';
+  
+  const clientMatch = clients.find(c => c.name.toLowerCase() === d.client.name.toLowerCase());
+  const select = document.getElementById('doc-client-select');
+  if (select) select.value = clientMatch ? clientMatch.id : '';
+
   currentItems = [...d.items]; 
   document.getElementById('doc-tax').value = d.totals.taxPct; 
   document.getElementById('doc-disc').value = d.totals.discPct; 
@@ -769,6 +851,11 @@ function clearDoc() {
   ['doc-client-name', 'doc-client-rnc', 'doc-client-email', 'doc-client-phone', 'doc-ncf-custom', 'doc-due-date'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
+  const clientSelect = document.getElementById('doc-client-select');
+  if (clientSelect) clientSelect.value = '';
+  const prodSelect = document.getElementById('doc-product-select');
+  if (prodSelect) prodSelect.value = '';
+
   const taxEl = document.getElementById('doc-tax'); if(taxEl) taxEl.value = '18';
   const discEl = document.getElementById('doc-disc'); if(discEl) discEl.value = '0';
   currentItems = []; 
@@ -809,9 +896,6 @@ async function delDoc(id) {
   showToast("Documento eliminado y stock restaurado");
 }
 
-// =========================================================
-// MÓDULO 1: SISTEMA DE ABONOS PARCIALES
-// =========================================================
 function openAbonoModal(docId) {
   currentAbonoDocId = docId;
   renderAbonoModalData();
@@ -905,9 +989,6 @@ async function delAbono(idx) {
   showToast("Pago eliminado");
 }
 
-// =========================================================
-// MÓDULO 2: IMPRESIÓN DE TICKET TÉRMICO POS (80MM)
-// =========================================================
 function printPOS(id) {
   const d = documents.find(x => x.id === id);
   if(!d) return;
@@ -998,7 +1079,6 @@ function printPOS(id) {
     </body>
     </html>
   `;
-
   triggerThermalPrint(html);
 }
 
@@ -1015,9 +1095,6 @@ function triggerThermalPrint(htmlContent) {
   }, 250);
 }
 
-// =========================================================
-// MÓDULO 3: CUADRE DE CAJA DIARIO (CIERRE DE TURNO)
-// =========================================================
 function isSameDay(ts, refDate) {
   if(!ts) return false;
   const d = new Date(ts);
@@ -1167,7 +1244,6 @@ function printCuadrePOS() {
   triggerThermalPrint(html);
 }
 
-// WHATSAPP CON DESGLOSE DE ABONO Y PENDIENTE
 function shareWhatsApp(id) {
   const d = documents.find(x => x.id === id);
   if(!d) return;
